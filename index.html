@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claude Code の仕組みを理解する — やさしい学習教材</title>
+<meta name="description" content="Claude Code(AIコーディングエージェント)の内部の仕組みを、初心者向けにやさしく解説する日本語学習教材。エージェントループからマルチエージェントまで19テーマ。">
+<style>
+/* ============================================================
+   デザインシステム（テーマ変数）
+   ============================================================ */
+:root{
+  --bg:        #faf7f2;
+  --bg-soft:   #f3ede3;
+  --surface:   #ffffff;
+  --surface-2: #fbf8f3;
+  --border:    #e7dfd2;
+  --border-2:  #d8cdba;
+  --text:      #2a2622;
+  --text-soft: #5c554c;
+  --text-mute: #8a8175;
+  --accent:    #c8613e;   /* coral */
+  --accent-2:  #b14f2e;
+  --accent-soft:#fbeee7;
+  --good:      #2f8f5b;
+  --good-soft: #e6f4ec;
+  --info:      #3b6ea5;
+  --info-soft: #e8f0f8;
+  --warn:      #b8860b;
+  --warn-soft: #f8f1de;
+  --code-bg:   #2c2824;
+  --code-text: #f4ece0;
+  --shadow:    0 1px 2px rgba(60,45,30,.06), 0 6px 20px rgba(60,45,30,.07);
+  --shadow-lg: 0 10px 40px rgba(60,45,30,.13);
+  --radius:    16px;
+  --radius-sm: 10px;
+  --maxw:      1080px;
+  --sidebar-w: 280px;
+  --font: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", "Meiryo", "Segoe UI", system-ui, sans-serif;
+  --mono: "SF Mono", "JetBrains Mono", "Fira Code", Consolas, Menlo, monospace;
+}
+html[data-theme="dark"]{
+  --bg:        #1a1714;
+  --bg-soft:   #221e1a;
+  --surface:   #24201c;
+  --surface-2: #2b2620;
+  --border:    #3a342c;
+  --border-2:  #4a4238;
+  --text:      #f0e9df;
+  --text-soft: #c4bcae;
+  --text-mute: #938b7d;
+  --accent:    #e08a63;
+  --accent-2:  #eaa07e;
+  --accent-soft:#3a2820;
+  --good:      #6fc492;
+  --good-soft: #1f3328;
+  --info:      #7fabd6;
+  --info-soft: #1e2c3a;
+  --warn:      #d9b15a;
+  --warn-soft: #352c18;
+  --code-bg:   #14110e;
+  --code-text: #f0e6d6;
+  --shadow:    0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.35);
+  --shadow-lg: 0 10px 40px rgba(0,0,0,.5);
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;scroll-padding-top:80px}
+body{
+  font-family:var(--font);
+  background:var(--bg);
+  color:var(--text);
+  line-height:1.85;
+  font-size:16px;
+  -webkit-font-smoothing:antialiased;
+  letter-spacing:.01em;
+  transition:background .3s, color .3s;
+}
+
+/* ============================================================
+   ヘッダー
+   ============================================================ */
+.topbar{
+  position:sticky;top:0;z-index:100;
+  background:color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter:saturate(160%) blur(12px);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:14px;
+  padding:12px 20px;
+}
+.topbar .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:1.02rem;letter-spacing:.02em}
+.topbar .brand .logo{
+  width:30px;height:30px;border-radius:8px;flex:0 0 auto;
+  background:linear-gradient(135deg,var(--accent),var(--accent-2));
+  display:grid;place-items:center;color:#fff;font-weight:900;font-size:1rem;
+  box-shadow:0 2px 8px color-mix(in srgb,var(--accent) 45%, transparent);
+}
+.topbar .spacer{flex:1}
+.btn-icon{
+  border:1px solid var(--border-2);background:var(--surface);color:var(--text-soft);
+  width:40px;height:40px;border-radius:10px;cursor:pointer;font-size:1.1rem;
+  display:grid;place-items:center;transition:all .15s;
+}
+.btn-icon:hover{border-color:var(--accent);color:var(--accent);transform:translateY(-1px)}
+.menu-toggle{display:none}
+
+/* ============================================================
+   レイアウト
+   ============================================================ */
+.layout{display:flex;gap:0;max-width:var(--maxw);margin:0 auto;align-items:flex-start}
+.sidebar{
+  position:sticky;top:57px;
+  width:var(--sidebar-w);flex:0 0 var(--sidebar-w);
+  height:calc(100vh - 57px);overflow-y:auto;
+  padding:24px 14px 60px 20px;
+}
+.sidebar .search{width:100%;margin-bottom:16px;position:relative}
+.sidebar .search input{
+  width:100%;padding:9px 12px 9px 34px;border-radius:10px;
+  border:1px solid var(--border-2);background:var(--surface);color:var(--text);
+  font-size:.88rem;font-family:var(--font);
+}
+.sidebar .search input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.sidebar .search::before{content:"🔍";position:absolute;left:11px;top:8px;font-size:.85rem;opacity:.6}
+.nav-group{margin-bottom:6px}
+.nav-group > .nav-cat{
+  display:block;font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--text-mute);padding:12px 10px 5px;
+}
+.nav-link{
+  display:flex;align-items:center;gap:9px;
+  padding:7px 10px;border-radius:9px;color:var(--text-soft);
+  text-decoration:none;font-size:.875rem;line-height:1.4;
+  border-left:3px solid transparent;transition:all .13s;
+}
+.nav-link .nid{font-variant-numeric:tabular-nums;font-size:.72rem;color:var(--text-mute);font-weight:700;flex:0 0 auto;width:26px}
+.nav-link:hover{background:var(--bg-soft);color:var(--text)}
+.nav-link.active{background:var(--accent-soft);color:var(--accent-2);font-weight:700}
+.nav-link.active .nid{color:var(--accent)}
+.nav-link.top{font-weight:700;color:var(--text)}
+
+main{flex:1;min-width:0;padding:30px 28px 100px;max-width:760px}
+
+/* ============================================================
+   セクション共通
+   ============================================================ */
+section{margin-bottom:56px;scroll-margin-top:72px}
+h1{font-size:2.15rem;line-height:1.3;font-weight:900;letter-spacing:-.01em;margin-bottom:8px}
+h2.sec-title{
+  font-size:1.5rem;font-weight:850;letter-spacing:-.01em;margin-bottom:14px;
+  display:flex;align-items:center;gap:10px;padding-bottom:10px;border-bottom:2px solid var(--border);
+}
+h2.sec-title .em{font-size:1.4rem}
+.lead{font-size:1.08rem;color:var(--text-soft);line-height:1.9}
+p{margin-bottom:14px}
+a{color:var(--accent-2)}
+strong{font-weight:800;color:var(--text)}
+.hl{background:linear-gradient(transparent 62%, var(--accent-soft) 62%);padding:0 2px;font-weight:700}
+
+/* ヒーロー */
+.hero{
+  background:
+    radial-gradient(1200px 400px at 80% -10%, color-mix(in srgb,var(--accent) 14%, transparent), transparent),
+    linear-gradient(180deg, var(--surface), var(--surface-2));
+  border:1px solid var(--border);border-radius:var(--radius);
+  padding:38px 34px;box-shadow:var(--shadow);margin-bottom:40px;
+}
+.hero .eyebrow{display:inline-block;font-size:.78rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--accent-2);background:var(--accent-soft);padding:5px 12px;border-radius:999px;margin-bottom:16px}
+.hero p{font-size:1.1rem;color:var(--text-soft)}
+.hero .stat-row{display:flex;gap:26px;flex-wrap:wrap;margin-top:24px;padding-top:22px;border-top:1px dashed var(--border-2)}
+.hero .stat{display:flex;flex-direction:column}
+.hero .stat b{font-size:1.7rem;font-weight:900;color:var(--accent-2);line-height:1.1}
+.hero .stat span{font-size:.82rem;color:var(--text-mute);font-weight:600}
+
+/* カラー付きコールアウト */
+.callout{border-radius:var(--radius-sm);padding:16px 18px 16px 18px;margin:18px 0;border:1px solid var(--border);background:var(--surface-2)}
+.callout .ct{font-weight:800;font-size:.92rem;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.callout.good{background:var(--good-soft);border-color:color-mix(in srgb,var(--good) 30%,transparent)}
+.callout.good .ct{color:var(--good)}
+.callout.info{background:var(--info-soft);border-color:color-mix(in srgb,var(--info) 30%,transparent)}
+.callout.info .ct{color:var(--info)}
+.callout.warn{background:var(--warn-soft);border-color:color-mix(in srgb,var(--warn) 35%,transparent)}
+.callout.warn .ct{color:var(--warn)}
+.callout.accent{background:var(--accent-soft);border-color:color-mix(in srgb,var(--accent) 30%,transparent)}
+.callout.accent .ct{color:var(--accent-2)}
+
+/* コードブロック */
+pre{background:var(--code-bg);color:var(--code-text);border-radius:var(--radius-sm);
+  padding:16px 18px;overflow-x:auto;margin:16px 0;font-size:.84rem;line-height:1.7;
+  font-family:var(--mono);border:1px solid rgba(255,255,255,.06)}
+pre .c{color:#8a9c8e}    /* comment */
+pre .k{color:#e0936a}    /* keyword */
+pre .s{color:#b6c48f}    /* string */
+pre .f{color:#7fb3d5}    /* func */
+code.inline{background:var(--bg-soft);border:1px solid var(--border);border-radius:6px;
+  padding:1px 6px;font-family:var(--mono);font-size:.85em;color:var(--accent-2)}
+
+/* ============================================================
+   メンタルモデル：エージェントループ図
+   ============================================================ */
+.loop-fig{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:26px;box-shadow:var(--shadow);margin:22px 0;text-align:center}
+.loop-fig svg{max-width:100%;height:auto}
+.loop-cap{font-size:.86rem;color:var(--text-mute);margin-top:10px}
+
+/* 5層スタック */
+.stack{display:flex;flex-direction:column;gap:8px;margin:22px 0}
+.stack .layer{
+  border-radius:12px;padding:14px 18px;border:1px solid var(--border);
+  display:flex;align-items:center;gap:14px;box-shadow:var(--shadow);
+  transition:transform .15s;
+}
+.stack .layer:hover{transform:translateX(4px)}
+.stack .layer .lico{font-size:1.5rem;flex:0 0 auto;width:40px;text-align:center}
+.stack .layer .ltxt b{display:block;font-size:1rem;font-weight:800}
+.stack .layer .ltxt span{font-size:.85rem;color:var(--text-soft)}
+.stack .layer .lnum{margin-left:auto;font-size:.72rem;color:var(--text-mute);font-weight:700;white-space:nowrap}
+.layer.l1{background:linear-gradient(90deg,var(--accent-soft),transparent)}
+.layer.l2{background:linear-gradient(90deg,var(--info-soft),transparent)}
+.layer.l3{background:linear-gradient(90deg,var(--good-soft),transparent)}
+.layer.l4{background:linear-gradient(90deg,var(--warn-soft),transparent)}
+.layer.l5{background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 12%,transparent),transparent)}
+
+/* ============================================================
+   トピックカード
+   ============================================================ */
+.cat-header{margin:50px 0 6px}
+.cat-header .cat-kicker{font-size:.76rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--accent-2)}
+.cat-header h2{font-size:1.55rem;font-weight:900;margin-top:4px}
+.cat-header p{color:var(--text-soft);font-size:.97rem;margin-top:4px}
+
+.topic{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  margin:18px 0;box-shadow:var(--shadow);overflow:hidden;scroll-margin-top:72px;
+}
+.topic > .thead{
+  display:flex;align-items:flex-start;gap:14px;padding:20px 22px;cursor:pointer;
+  user-select:none;transition:background .15s;
+}
+.topic > .thead:hover{background:var(--surface-2)}
+.topic .tbadge{
+  flex:0 0 auto;width:46px;height:46px;border-radius:12px;display:grid;place-items:center;
+  font-size:1.5rem;background:var(--accent-soft);border:1px solid color-mix(in srgb,var(--accent) 25%,transparent);
+}
+.topic .ttitle{flex:1;min-width:0}
+.topic .ttitle .tid{font-size:.72rem;font-weight:800;color:var(--accent-2);letter-spacing:.06em}
+.topic .ttitle h3{font-size:1.18rem;font-weight:850;line-height:1.4;margin:2px 0}
+.topic .ttitle .tone{font-size:.92rem;color:var(--text-soft);line-height:1.6}
+.topic .tchev{flex:0 0 auto;color:var(--text-mute);font-size:1.1rem;transition:transform .25s;margin-top:6px}
+.topic.open .tchev{transform:rotate(180deg)}
+
+.tbody{display:none;padding:0 22px 22px;border-top:1px solid var(--border)}
+.topic.open .tbody{display:block;animation:fade .25s ease}
+@keyframes fade{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+
+.block{margin-top:18px}
+.block .blabel{
+  display:inline-flex;align-items:center;gap:7px;font-size:.8rem;font-weight:800;letter-spacing:.03em;
+  padding:4px 11px;border-radius:999px;margin-bottom:9px;
+}
+.bl-why  .blabel{background:var(--accent-soft);color:var(--accent-2)}
+.bl-what .blabel{background:var(--info-soft);color:var(--info)}
+.bl-how  .blabel{background:var(--bg-soft);color:var(--text-soft);border:1px solid var(--border)}
+.bl-ana  .blabel{background:var(--good-soft);color:var(--good)}
+.bl-cc   .blabel{background:var(--warn-soft);color:var(--warn)}
+.block p{margin-bottom:10px}
+.block ul{margin:6px 0 6px 4px;list-style:none}
+.block ul li{position:relative;padding-left:22px;margin-bottom:7px;line-height:1.7}
+.block ul li::before{content:"▸";position:absolute;left:4px;color:var(--accent);font-weight:900}
+.keypoints{background:var(--surface-2);border:1px dashed var(--border-2);border-radius:var(--radius-sm);padding:14px 16px;margin-top:18px}
+.keypoints .blabel{background:transparent;padding:0 0 4px;color:var(--text);font-size:.9rem}
+
+.analogy{background:var(--good-soft);border-radius:var(--radius-sm);padding:13px 16px;border-left:4px solid var(--good)}
+
+/* 一覧表（メリット早見表） */
+.table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius-sm);box-shadow:var(--shadow)}
+table{border-collapse:collapse;width:100%;font-size:.9rem;background:var(--surface)}
+th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--border);vertical-align:top}
+th{background:var(--surface-2);font-weight:800;font-size:.82rem;color:var(--text-soft);position:sticky;top:0}
+tr:last-child td{border-bottom:none}
+td .mini-id{font-weight:800;color:var(--accent-2);font-size:.82rem}
+
+/* 用語集 */
+.glossary dl{display:grid;gap:0}
+.glossary dt{font-weight:800;color:var(--text);margin-top:14px;font-size:.98rem}
+.glossary dd{color:var(--text-soft);font-size:.93rem;padding-left:0;margin-top:2px}
+
+/* チップ */
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}
+.chip{font-size:.8rem;font-weight:700;padding:5px 12px;border-radius:999px;background:var(--bg-soft);border:1px solid var(--border);color:var(--text-soft)}
+
+/* フッター */
+footer{border-top:1px solid var(--border);background:var(--surface);margin-top:40px}
+footer .inner{max-width:var(--maxw);margin:0 auto;padding:30px 28px;color:var(--text-mute);font-size:.86rem}
+footer a{color:var(--accent-2)}
+
+/* トップへ戻る */
+.totop{position:fixed;right:22px;bottom:22px;width:46px;height:46px;border-radius:50%;
+  background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:1.2rem;
+  box-shadow:var(--shadow-lg);opacity:0;pointer-events:none;transition:opacity .25s, transform .15s;z-index:90}
+.totop.show{opacity:1;pointer-events:auto}
+.totop:hover{transform:translateY(-3px)}
+
+.empty-hint{color:var(--text-mute);font-style:italic}
+
+/* ============================================================
+   レスポンシブ
+   ============================================================ */
+@media (max-width:860px){
+  .menu-toggle{display:grid}
+  .sidebar{
+    position:fixed;left:0;top:57px;z-index:95;background:var(--bg);
+    border-right:1px solid var(--border);box-shadow:var(--shadow-lg);
+    transform:translateX(-105%);transition:transform .25s;width:84vw;max-width:320px;
+  }
+  .sidebar.open{transform:none}
+  main{padding:22px 18px 80px;max-width:100%}
+  h1{font-size:1.7rem}
+  .hero{padding:26px 20px}
+}
+@media print{
+  .topbar,.sidebar,.totop{display:none}
+  .tbody{display:block !important}
+  .topic{break-inside:avoid;box-shadow:none}
+  main{max-width:100%}
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <button class="btn-icon menu-toggle" id="menuToggle" aria-label="メニュー">☰</button>
+  <div class="brand"><span class="logo">CC</span><span>Claude Code の仕組み</span></div>
+  <div class="spacer"></div>
+  <button class="btn-icon" id="themeToggle" aria-label="テーマ切替" title="ライト/ダーク切替">🌙</button>
+</header>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar">
+    <div class="search"><input id="searchBox" type="text" placeholder="トピックを検索..." aria-label="検索"></div>
+    <div id="navContent"></div>
+  </nav>
+
+  <main>
+    <!-- ヒーロー -->
+    <section id="top">
+      <div class="hero">
+        <span class="eyebrow">やさしい学習教材</span>
+        <h1>Claude Code の「中身」を理解する</h1>
+        <p>AIコーディングエージェントは魔法ではありません。たった一つの<strong>シンプルなループ</strong>と、その上に積み重なる<strong>層(レイヤー)</strong>でできています。この教材は、その仕組みを<strong>専門用語をかみ砕いて</strong>、なぜ学ぶと得なのかと一緒に、日本語で解説します。</p>
+        <div class="stat-row">
+          <div class="stat"><b>19</b><span>テーマ</span></div>
+          <div class="stat"><b>5</b><span>レイヤー</span></div>
+          <div class="stat"><b>&lt;30行</b><span>核となるループ</span></div>
+          <div class="stat"><b>0</b><span>前提知識でもOK</span></div>
+        </div>
+      </div>
+      <div class="callout info">
+        <div class="ct">📖 この教材の使い方</div>
+        左のメニューから気になるテーマへジャンプできます。各テーマのカードをクリックすると、<strong>「なぜ学ぶ?(メリット)→ 概念 → 仕組み → たとえ → 実物との対応 → 要点」</strong>の順で開きます。上から順に読むのがおすすめですが、どこからでも読めます。
+      </div>
+    </section>
+
+    <!-- なぜ学ぶのか（大局） -->
+    <section id="why">
+      <h2 class="sec-title"><span class="em">💡</span>そもそも、なぜ仕組みを学ぶの?</h2>
+      <p class="lead">「使えればいいじゃないか」と思うかもしれません。でも仕組みを知ると、Claude Code(や同種のAIツール)の<strong>使いこなし方が一段変わります</strong>。理由は4つあります。</p>
+
+      <div class="callout accent">
+        <div class="ct">🎯 結論：AI = 「賢いモデル」＋「それを動かす道具立て(ハーネス)」</div>
+        知能はモデル(Claude本体)の訓練から生まれます。一方で、ファイルを読む・コマンドを実行する・記憶する・権限を確認する——こうした<strong>「手足」や「環境」を用意しているのは、モデルの外側のプログラム(ハーネス)</strong>です。この教材で学ぶ19テーマは、すべて<strong>このハーネスの部品</strong>です。
+      </div>
+
+      <div class="block bl-why"><span class="blabel">メリット1 ｜ 使いこなせる</span>
+        <p>権限・メモリ(CLAUDE.md)・サブエージェント・スキルなどの設定が「何のためにあるか」が分かると、<strong>狙った動きをさせられる</strong>ようになります。手探りの設定から卒業できます。</p>
+      </div>
+      <div class="block bl-why"><span class="blabel">メリット2 ｜ つまずきを理解できる</span>
+        <p>「急に前の話を忘れた」「同じ確認を何度もしてくる」「ループしている」——こうした挙動の<strong>原因が分かり、対処</strong>できます。コンテキスト圧縮やエラー回復を知っていれば納得です。</p>
+      </div>
+      <div class="block bl-why"><span class="blabel">メリット3 ｜ 自分でも作れる</span>
+        <p>ここで学ぶパターン(ループ・ツール・MCP・マルチエージェント)は<strong>あらゆるAIエージェントに共通</strong>です。自分の業務自動化や独自エージェントを作る土台になります。</p>
+      </div>
+      <div class="block bl-why"><span class="blabel">メリット4 ｜ AIの強みと限界が見える</span>
+        <p>「モデルがやっていること」と「外側の仕組みがやっていること」を切り分けられると、<strong>AIに何を任せ、何を任せないか</strong>の判断力が上がります。過信も過小評価もしなくなります。</p>
+      </div>
+    </section>
+
+    <!-- メンタルモデル -->
+    <section id="model">
+      <h2 class="sec-title"><span class="em">🧠</span>全体のメンタルモデル</h2>
+      <p class="lead">最初にこの2枚の図を頭に入れておくと、19テーマが「バラバラの知識」ではなく<strong>「一つの絵の部品」</strong>として繋がります。</p>
+
+      <h3 style="font-weight:850;margin:24px 0 6px;font-size:1.12rem">① 核：エージェントループ(これが全ての土台)</h3>
+      <p>Claude Code の心臓部は、驚くほど単純な<strong>繰り返し(ループ)</strong>です。</p>
+      <div class="loop-fig">
+        <svg viewBox="0 0 520 250" role="img" aria-label="エージェントループの図">
+          <defs>
+            <marker id="arr" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto">
+              <path d="M0,0 L7,3 L0,6 Z" fill="var(--accent)"/>
+            </marker>
+          </defs>
+          <!-- nodes -->
+          <rect x="180" y="18" width="160" height="48" rx="12" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+          <text x="260" y="40" text-anchor="middle" font-size="14" font-weight="700" fill="var(--text)">① モデルに聞く</text>
+          <text x="260" y="57" text-anchor="middle" font-size="11" fill="var(--text-soft)">次に何をすべき?</text>
+
+          <rect x="360" y="100" width="150" height="48" rx="12" fill="var(--info-soft)" stroke="var(--info)" stroke-width="1.5"/>
+          <text x="435" y="122" text-anchor="middle" font-size="14" font-weight="700" fill="var(--text)">② 道具を使う</text>
+          <text x="435" y="139" text-anchor="middle" font-size="11" fill="var(--text-soft)">ファイル/コマンド等</text>
+
+          <rect x="185" y="182" width="150" height="48" rx="12" fill="var(--good-soft)" stroke="var(--good)" stroke-width="1.5"/>
+          <text x="260" y="204" text-anchor="middle" font-size="14" font-weight="700" fill="var(--text)">③ 結果を渡す</text>
+          <text x="260" y="221" text-anchor="middle" font-size="11" fill="var(--text-soft)">どうなった?を報告</text>
+
+          <rect x="10" y="100" width="150" height="48" rx="12" fill="var(--surface-2)" stroke="var(--border-2)" stroke-width="1.5"/>
+          <text x="85" y="122" text-anchor="middle" font-size="13" font-weight="700" fill="var(--text)">完了?</text>
+          <text x="85" y="139" text-anchor="middle" font-size="10.5" fill="var(--text-soft)">道具不要なら終了</text>
+          <!-- arrows -->
+          <path d="M340,52 Q420,62 430,98" fill="none" stroke="var(--accent)" stroke-width="2" marker-end="url(#arr)"/>
+          <path d="M400,150 Q360,200 337,200" fill="none" stroke="var(--accent)" stroke-width="2" marker-end="url(#arr)"/>
+          <path d="M185,206 Q90,200 86,150" fill="none" stroke="var(--accent)" stroke-width="2" marker-end="url(#arr)"/>
+          <path d="M120,98 Q150,60 178,48" fill="none" stroke="var(--accent)" stroke-width="2" marker-end="url(#arr)"/>
+          <text x="150" y="80" font-size="10.5" fill="var(--text-mute)">まだ続く</text>
+        </svg>
+        <div class="loop-cap">①→②→③→①… を、モデルが「もう道具はいらない(完了)」と言うまで繰り返すだけ。これがエージェントの正体です。</div>
+      </div>
+
+      <h3 style="font-weight:850;margin:30px 0 6px;font-size:1.12rem">② 構造：ループの上に積み重なる5つの層</h3>
+      <p>このループだけでは不器用です。そこで<strong>「ループ本体は変えず」</strong>、まわりに機能の層を足していきます。この教材の5カテゴリは、そのまま<strong>5つの層</strong>に対応します。</p>
+      <div class="stack">
+        <div class="layer l5"><span class="lico">🤝</span><span class="ltxt"><b>5. マルチエージェント基盤</b><span>複数のAIが分担・協力・自律的に働く</span></span><span class="lnum">s12,15–19</span></div>
+        <div class="layer l4"><span class="lico">⏱️</span><span class="ltxt"><b>4. 並行処理</b><span>裏で動かす・定期的に動かす</span></span><span class="lnum">s13,14</span></div>
+        <div class="layer l3"><span class="lico">🧩</span><span class="ltxt"><b>3. メモリ管理</b><span>長い会話を圧縮し、大事なことを覚える</span></span><span class="lnum">s08,09</span></div>
+        <div class="layer l2"><span class="lico">🗺️</span><span class="ltxt"><b>2. 計画と調整</b><span>計画を立て、役割を分け、失敗から立て直す</span></span><span class="lnum">s05–07,10,11</span></div>
+        <div class="layer l1"><span class="lico">⚙️</span><span class="ltxt"><b>1. ツールと実行</b><span>ループ・道具・権限・フック(核となる土台)</span></span><span class="lnum">s01–04</span></div>
+      </div>
+      <div class="callout good">
+        <div class="ct">✅ 覚えておきたい一文</div>
+        <strong>「ループは変わらない。変わるのはツール・知識・権限だ。」</strong> どんなに高機能になっても、土台は最初の単純なループのまま。新機能は層として外側に足されるだけ——この視点があると全体が驚くほどスッキリ見えます。
+      </div>
+    </section>
+
+    <!-- メリット早見表 -->
+    <section id="cheatsheet">
+      <h2 class="sec-title"><span class="em">📋</span>19テーマ メリット早見表</h2>
+      <p class="lead">「結局どれが何の役に立つの?」を1枚で。気になる行をクリックすると詳細へ飛びます。</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th style="width:64px">No.</th><th style="width:34%">テーマ</th><th>これを知ると嬉しいこと(メリット)</th></tr></thead>
+          <tbody id="cheatBody"><!-- JSで生成 --></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- トピック本体（JSで生成） -->
+    <div id="topics"></div>
+
+    <!-- 用語集 -->
+    <section id="glossary" class="glossary">
+      <h2 class="sec-title"><span class="em">📚</span>用語ミニ辞典</h2>
+      <p class="lead">本文に出てくる言葉を、最小限の説明で。</p>
+      <dl id="glossaryList"></dl>
+    </section>
+
+    <section id="closing">
+      <div class="callout accent">
+        <div class="ct">🎓 おわりに</div>
+        19テーマすべては、最初の<strong>単純なループ</strong>に機能を足していく物語でした。Claude Code を触るとき「いま、どの層が働いているんだろう?」と考えてみてください。仕組みが見えると、AIはぐっと頼れる道具になります。
+      </div>
+    </section>
+  </main>
+</div>
+
+<button class="totop" id="toTop" aria-label="トップへ戻る">↑</button>
+
+<footer>
+  <div class="inner">
+    <p><strong>Claude Code の仕組みを理解する</strong> — やさしい学習教材</p>
+    <p style="margin-top:8px">元教材: <a href="https://learn.shareai.run/ja/" target="_blank" rel="noopener">learn.shareai.run</a>(shareAI-lab「learn-claude-code」)を参考に、初心者向けに再構成・加筆したものです。本資料は学習目的の二次教材です。</p>
+    <p style="margin-top:8px">このページは<strong>単一HTMLファイル</strong>で動作し、外部通信・データ保存を一切行いません。保存して、オフラインでもご利用いただけます。</p>
+  </div>
+</footer>
+
+<script>
+/* ============================================================
+   コンテンツデータ（調査結果でここを差し替える）
+   各トピック:
+   { id, cat, icon, title, one, why, what, how(配列/文字列), analogy, cc, points[] }
+   how は配列なら段落、{code:"..."} でコードブロック
+   ============================================================ */
+const CATEGORIES = [
+  {key:"exec",  kicker:"レイヤー 1", title:"⚙️ ツールと実行", desc:"エージェントの土台。ループ・道具・安全装置・拡張点。"},
+  {key:"plan",  kicker:"レイヤー 2", title:"🗺️ 計画と調整",   desc:"複雑な仕事を、計画し・分担し・立て直す力。"},
+  {key:"memory",kicker:"レイヤー 3", title:"🧩 メモリ管理",   desc:"限られた記憶領域をやりくりし、大事なことを覚える。"},
+  {key:"concur",kicker:"レイヤー 4", title:"⏱️ 並行処理",     desc:"待たずに裏で動かす。決まった時刻に自動で動く。"},
+  {key:"multi", kicker:"レイヤー 5", title:"🤝 マルチエージェント基盤", desc:"複数のAIが分担・通信・自律して大きな仕事をこなす。"},
+];
+
+const TOPICS = [
+/* ===== レイヤー1：ツールと実行 ===== */
+{
+  id:"s01", cat:"exec", icon:"🔁", title:"エージェントループ",
+  one:"「考える(モデル)→実行する(プログラム)→結果を戻す」を、完了の合図が出るまで繰り返すだけの仕組み。",
+  merit:"AIエージェントの正体が分かる。複雑に見えても芯は30行のループだと腹落ちする。",
+  why:`<p>ChatGPTのような「答えるだけ」のAIと、Claude Codeのような「実際にファイルを作る・コマンドを動かす」AIの<strong>決定的な違い</strong>が、この「ループがあるかどうか」です。ここが分かると、世のあらゆる自律エージェントの共通構造が一気に見通せます。</p>
+  <ul><li><strong>謎が解ける</strong>：1回の指示でAIが何ステップも自動で進むのは、ループが「モデルがまだ道具を使いたがる限り回り続ける」から。</li>
+  <li><strong>恐れが消える</strong>：複雑に見えるAIツールの芯は、たった30行ほどの繰り返し。残りは安全装置や回復処理の積み重ねにすぎません。</li></ul>`,
+  what:`<p>モデル(Claude本体)は、文章を書いたり「このコマンドを実行して」と<em>提案</em>したりはできますが、<strong>自分でコマンドを実行することはできません</strong>。そこで、人間が手作業でやっていた「①AIに聞く→②実行する→③結果を貼り戻す」の往復を、プログラムが自動で回します。これがエージェントループです。</p>
+  <p>大事な役割分担：<strong>判断するのはモデル、実行するのはループ</strong>。ループ自体は賢くありません(「知能」ではなく「実行のための枠組み」)。AIを実行環境につなぐこの仕組み全体を<code class="inline">ハーネス(harness)</code>と呼びます。</p>`,
+  how:[
+    `続けるか止めるかは、モデルの返事に付く<code class="inline">stop_reason</code>(停止理由)1つで決まります。<strong>tool_use なら</strong>道具を使いたい→実行して結果を戻し継続。<strong>それ以外なら</strong>完了→終了。`,
+    {code:`while True:
+    # 1. モデルに、会話と使える道具を渡して聞く
+    response = model.create(messages, tools=TOOLS)
+    messages.append(response)         # 返事を会話に追加
+
+    # 2. 道具を使う気がなければ＝完了。ループを抜ける
+    if response.stop_reason != "tool_use":
+        break
+
+    # 3. 要求された道具を実行し、結果を会話に戻す
+    results = run_tools(response)
+    messages.append(results)          # → 先頭へ戻る`},
+    `会話は<code class="inline">messages</code>という1本の配列に、「モデルの発言」と「道具の結果」を交互に積むだけ。これが文脈そのものになります。`
+  ],
+  analogy:`<strong>料理人(モデル)と見習い(ループ)</strong>の関係です。料理人は「フライパンを火にかけて」と<em>指示</em>はできますが、自分の手は動かしません。見習いは言われた通りに動かし「火がつきました」と<em>報告</em>。料理人はそれを見て次を指示し、「完成!」と言うまで往復が続きます。見習いは料理の判断はせず、忠実に実行と報告を繰り返すだけ——これがループです。`,
+  cc:`<p>本物のClaude Codeのループも中身は同じです。ただし本番版は、ストリーミング(返事が少しずつ届く)への対応、往復回数の上限(暴走防止)、出力が途切れたときの回復など、多数の<strong>安全装置</strong>を足しています。教材いわく「複雑に見えるCCも、芯は30行のループ。あとはすべて保護と拡張」。</p>`,
+  points:[
+    `エージェントの本質は「モデル呼び出し→道具の実行→結果を戻す」を繰り返す while ループ1つ。`,
+    `判断はモデル、実行はループ。ループ自体は賢くない(=ハーネス)。`,
+    `継続/終了は <code class="inline">stop_reason == "tool_use"</code> かどうかで決まる。`,
+    `会話は messages 配列に「発言」と「道具の結果」を交互に積んで表現する。`,
+    `安全装置(s03権限)を入れる前は、生成されたコマンドをそのまま実行するので危険。`
+  ]
+},
+{
+  id:"s02", cat:"exec", icon:"🧰", title:"ツール使用",
+  one:"ループ本体を変えず、「道具の名前→実行する関数」の対応表に1行足すだけで能力を増やせる。",
+  merit:"なぜClaude Codeが無限に機能(MCP含む)を増やせるのか、その拡張の仕組みが分かる。",
+  why:`<p>「機能を足すたびに本体をいじる」とソフトはすぐ壊れます。ツール使用は<strong>「本体は固定、追加は端の対応表だけ」</strong>という壊れにくい拡張のお手本。これが、Claude CodeがツールやMCPを<strong>いくらでも足せる理由</strong>です。</p>
+  <ul><li><strong>速く・安く・正確に</strong>：専用の道具(ファイル読み書き等)を用意すると、モデルは余計なシェル構文を考えずに済み、トークン(=コスト)を節約でき、ミスも減ります。</li></ul>`,
+  what:`<p>道具(ツール)とは、エージェントが取れる行動の単位です。最初は<code class="inline">bash</code>(シェルコマンド)1つでも何でもできますが、ファイルを読むだけでも毎回コマンドを組み立てさせるのは非効率。そこで<code class="inline">read_file</code>・<code class="inline">write_file</code>のような<strong>専用ツール</strong>を用意し、モデルが「これを読みたい」という<em>意図</em>を直接表現できるようにします。</p>
+  <p>中心は<strong>ディスパッチマップ</strong>(振り分け表)=「道具の名前と、それを実行する関数の対応辞書」。新しい道具はここに1行足すだけ。</p>`,
+  how:[
+    {code:`TOOL_HANDLERS = {
+    "bash":       run_bash,
+    "read_file":  run_read,
+    "write_file": run_write,
+    "edit_file":  run_edit,
+}
+
+# ループ側の変更はこの1行だけ
+handler = TOOL_HANDLERS[block.name]  # 名前で関数を引く
+output  = handler(**block.input)     # その関数を呼ぶ`},
+    `各ツールは「定義(モデルへの説明書)」と「実装(動く関数)」の2点セットで登録します。ファイル系ツールは<code class="inline">../</code>で作業フォルダ外へ出る攻撃(パストラバーサル)を防ぐ検証付き。`
+  ],
+  analogy:`<strong>会社の電話交換手</strong>です。かけ手(モデル)は「経理につないで」と部署名を言うだけ。交換手(振り分け表)は部署名と内線の対応表を見てつなぎます。新部署ができても<strong>表に1行足すだけ</strong>で、交換手の仕事のやり方そのものは変わりません。`,
+  cc:`<p>本物のCCは各ツールを独立オブジェクトにし、さらに「同時に動かして安全か」を<strong>引数レベルで判定</strong>します(例：<code class="inline">ls</code>は並列OK、<code class="inline">rm</code>は並列NG)。安全な読み取りをまとめて同時実行し高速化。実行前には<strong>5段階の検証</strong>(型チェック→値チェック→フック→権限→実行)を通します。</p>`,
+  points:[
+    `中心は「道具名→関数」の辞書(ディスパッチマップ)。本体を変えず機能追加できる。`,
+    `ツールは「定義(説明)」+「実装(関数)」の2点セットで登録する。`,
+    `専用ツールは意図表現を簡単にし、トークン節約と精度向上につながる。`,
+    `CCは並列で安全かを引数で判定し、安全なものをまとめて同時実行する。`
+  ]
+},
+{
+  id:"s03", cat:"exec", icon:"🛡️", title:"権限",
+  one:"道具を実行する「直前」に毎回チェックを入れ、危険な操作を止める安全装置。",
+  merit:"「AIが勝手に危ないことをしたら?」への現実的な答え。確認ダイアログの裏側が分かる。",
+  why:`<p>「AIに実行権を与えるのが怖い」——その最大の不安への具体的な答えが権限です。思想は明快で<strong>「モデルを信じず、コードで守る」</strong>。</p>
+  <ul><li>Claude Codeが時々出す<strong>「この操作を許可しますか?」</strong>ダイアログの正体がこれ。なぜ黙って通る操作と確認される操作があるのか、判断ロジックが見えます。</li>
+  <li>許可/拒否は設定で変えられます。仕組みを知れば、自分の環境を<strong>安全かつ快適にチューニング</strong>できます。</li></ul>`,
+  what:`<p>安全装置が無いと、「掃除して」の一言でモデルが<code class="inline">rm -rf /</code>(全削除)のような破壊的コマンドを生成したら、そのまま実行されてしまいます。権限パイプラインは、<strong>すべての道具実行の前にコードでチェック</strong>してこれを止めます。</p>`,
+  how:[
+    `実行要求は3つの関門を順に通ります。①<strong>拒否リスト</strong>(rm -rf / や sudo など常に禁止→即拒否)→ ②<strong>ルール一致</strong>(作業フォルダ外への書き込み等)→ ③<strong>ユーザー承認</strong>(②に当たったら人間に確認)。どれにも当たらなければそのまま実行。`,
+    {code:`if check_deny_list(cmd):          # 関門1：常に禁止
+    return "⛔ 拒否"
+if match_rules(tool, input):      # 関門2：状況依存
+    if ask_user(...) == "deny":   # 関門3：人間に確認
+        return "拒否"
+return "許可"   # 安全な操作はここに来る`}
+  ],
+  analogy:`<strong>空港のセキュリティ</strong>です。①持ち込み禁止リスト(拳銃など)＝見つかれば即没収。②ルール(100ml超の液体など)＝引っかかったら別レーンへ。③係員が本人に確認＝OKなら通す。普通の荷物はそのままスルー。`,
+  cc:`<p>本物のCCは<strong>allow / deny / ask / passthrough</strong>の4状態、<strong>8か所</strong>の設定ソース(ユーザー設定・プロジェクト設定・企業ポリシー等)からルールを読み、さらに分類器が文脈から安全性を自動判断して<strong>「確認疲れ」</strong>(何でも聞かれて雑に承認してしまう状態)を防ぎます。</p>`,
+  points:[
+    `哲学は「モデルを信じず、コードで守る」。実行の直前に毎回チェック。`,
+    `3関門：拒否リスト→ルール一致→ユーザー承認。当たらなければ実行。`,
+    `ループへの追加は1行だけ。安全ロジックは1か所に集約。`,
+    `CCはallow/deny/ask/passthroughの4状態＋8ソース＋分類器で運用。`
+  ]
+},
+{
+  id:"s04", cat:"exec", icon:"🪝", title:"フック",
+  one:"ループ本体を書き換えず、決まったタイミングに自分の処理を「あとから引っかける」拡張の仕組み。",
+  merit:"「コミット前にテスト」「編集後に自動整形」などClaude Codeを自分好みに自動化できる。",
+  why:`<p>これはClaude Codeを<strong>自分好みに自動化する</strong>最も実用的な機能の一つです。「コミット前に必ずテストを走らせる」「ファイル編集後に自動でフォーマッタをかける」「危険操作をログに残す」——すべてフックで実現します。</p>
+  <ul><li>AIを受け身で使うのでなく、<strong>自分のルールを割り込ませて能動的に制御</strong>できます。</li>
+  <li>チーム共通の約束(「保存時に必ずリンター」)を、人の意志でなく<strong>仕組みで強制</strong>できます。</li></ul>`,
+  what:`<p>権限チェックやログをループ本体に直接書き込むと、要件が増えるたびに本体が肥大化し、本来の仕事と無関係な処理(ログ・通知など＝<em>横断的関心事</em>)がごちゃ混ぜになります。フックは、本体をいじる代わりに<strong>外側に「拡張ポイント(イベント)」を用意し、そこに処理を登録</strong>するやり方。合言葉は<strong>「ループに掛けろ、ループに書き込むな」</strong>。</p>`,
+  how:[
+    `「イベント名→処理のリスト」の登録簿を持ち、要所で発火させます。教材の4イベント：<strong>UserPromptSubmit</strong>(入力後)・<strong>PreToolUse</strong>(実行前)・<strong>PostToolUse</strong>(実行後)・<strong>Stop</strong>(終了前)。`,
+    {code:`HOOKS = {"PreToolUse": [], "PostToolUse": [], ...}
+
+def trigger(event, *args):
+    for cb in HOOKS[event]:
+        r = cb(*args)
+        if r is not None:    # None以外 = 割り込み
+            return r         # PreToolUse→実行阻止 / Stop→続行強制
+    return None              # None = そのまま続行`}
+  ],
+  analogy:`スマホの<strong>自動化アプリ(「もし〜したら〜する」)</strong>です。アプリ本体は改造せず、「家に着いたら(イベント)Wi-Fiをオンにする(処理)」というルールを外から登録します。「撮影後に自動でクラウド保存」のように、決まったタイミングに自分の処理を差し込めます。`,
+  cc:`<p>本物のCCには<strong>27種類</strong>のフックイベント(セッション開始/終了、圧縮の前後、サブエージェントの開始/終了など)があります。重要な安全則：フックが<code class="inline">allow</code>を返しても、設定ファイルの<code class="inline">deny</code>が<strong>優先</strong>。フックで安全装置を骨抜きにはできません。</p>`,
+  points:[
+    `思想は「ループに掛けろ、書き込むな」。本体を汚さず外から処理を登録。`,
+    `登録簿は「イベント名→処理のリスト」。要所で発火。`,
+    `戻り値がNoneなら続行、None以外なら割り込み(実行阻止/続行強制)。`,
+    `CCは27イベント。ただし最終的な安全の決定権は権限設定(deny)側にある。`
+  ]
+},
+
+/* ===== レイヤー2：計画と調整 ===== */
+{
+  id:"s05", cat:"plan", icon:"✅", title:"TodoWrite",
+  one:"作業前に「やることリスト」を書き出し、進捗(未着手/作業中/完了)を常に見える形で管理する道具。",
+  merit:"長い作業でAIが脱線・忘却するのを防ぐ。なぜチェックリストが出るのかが分かる。",
+  why:`<p>解決するのは<strong>「エージェントの注意散漫(ドリフト)」</strong>です。複数手順の指示を与えると、AIは途中の細部(テストの失敗など)にのめり込み、当初の目的を忘れがち。会話が長いほど、最初の指示が大量のログに埋もれて効き目が薄れるからです。</p>
+  <ul><li>やることリストが<strong>常に画面と文脈に残る</strong>ので、脱線しても引き戻せる。</li>
+  <li>1つずつ潰すので<strong>抜け漏れや「やったつもり」</strong>が減る。新しい能力ではなく「考えを構造化して見える化」することで信頼性を上げます。</li></ul>`,
+  what:`<p>TodoWriteは<strong>計画専用</strong>のツールです。ここが肝で、<strong>ファイル操作もコマンド実行もできません</strong>。できるのは「タスク一覧を作り、各タスクの状態を<code class="inline">pending</code>(未着手)/<code class="inline">in_progress</code>(作業中)/<code class="inline">completed</code>(完了)に更新する」ことだけ。</p>`,
+  how:[
+    `流れは「①複雑なタスクを受け取る→②まず全手順を未着手で列挙→③1つを作業中に→④別ツールで実作業→⑤完了に更新→⑥次へ」。`,
+    `さらに<strong>ナッジ(そっと促す)機構</strong>があり、3ターン連続でリストを更新しないと「todoを更新して」というリマインダーが差し込まれ、計画する癖を促します。`
+  ],
+  analogy:`料理でいきなり手を動かす前に、<strong>冷蔵庫のホワイトボードに「①米を炊く ②野菜を切る ③炒める」と書き、終わったらチェック</strong>を入れるのと同じ。ボード自体は料理しませんが「何を作っていたんだっけ」を防げます。3ターンのナッジは、家族が「リスト更新した?」と声をかけてくるイメージ。`,
+  cc:`<p>本物のCCの<strong>TodoWriteツール</strong>(画面に出るチェックリスト)に対応します。これはのちに「タスクシステム(s12)」へ発展し、ファイルへの永続化・依存関係・複数エージェントでの分担が加わりますが、「行動の前に計画を見える化する」という根本は同じです。</p>`,
+  points:[
+    `TodoWriteは計画専用。実行能力は一切増えない(増えるのは計画力)。`,
+    `状態は pending / in_progress / completed の3つ。`,
+    `解決する課題は長い作業でのドリフト(脱線・忘却)。`,
+    `3ターン更新しないとリマインダーが自動で差し込まれる。`
+  ]
+},
+{
+  id:"s06", cat:"plan", icon:"🪆", title:"サブエージェント",
+  one:"重い調査などを、まっさらな会話履歴を持つ別のエージェントに任せ、結論だけを受け取る仕組み。",
+  merit:"親の会話が中間ログで汚れて物忘れするのを防ぐ。大きな調査を安全に切り出せる。",
+  why:`<p>解決するのは<strong>「コンテキスト汚染」</strong>です。大きな問題に取り組むと会話履歴が膨らみます(例：1つのバグ修正で30ファイルを読み60往復→メッセージ120件超)。その大半は中間調査で、溜まるとAIは<strong>物忘れがひどくなり目的を見失います</strong>。</p>
+  <ul><li>重い調査を別プロセスに隔離するので<strong>親の履歴がきれいなまま</strong>保たれ、親は「結論」だけ受け取って次に集中できます。</li></ul>
+  <p class="empty-hint">※ まさにこの教材も、5体のサブエージェントに調査を分担させて作りました。</p>`,
+  what:`<p>サブエージェントは、特定のサブタスクのために起動する<strong>独立したエージェント</strong>。親の履歴を引き継がず<strong>空の会話から始まり</strong>、自分のループを回し、終わったら<strong>最終的な結論テキストだけ</strong>を親に返します(途中経過は捨てる)。</p>`,
+  how:[
+    `設計のポイント：①新しい会話で始める(親を汚さない) ②結論だけ返す ③<strong>サブには「サブを生む道具」を渡さない</strong>(無限に子が増えるのを防ぐ) ④サブの道具実行も権限フックを通す(隔離≠権限の素通り)。`,
+    `重要：隔離されるのは<strong>会話履歴だけ</strong>。ファイルの書き換えなど実際の変更(副作用)はディスクに残ります。`
+  ],
+  analogy:`忙しいシェフ(親)が見習い(サブ)に「この食材が新鮮か倉庫を全部見てきて」と頼む状況。見習いは倉庫であれこれ調べますが、戻って言うのは<strong>「全部新鮮でした」の一言だけ</strong>。シェフの作業台(文脈)は散らからず調理に集中できます。ただし倉庫で物を動かせば、その変化は残ります。`,
+  cc:`<p>本物のCCの<strong>Task/サブエージェント機能</strong>(別エージェントの起動)に対応します。実際のCCでも「サブの最終メッセージだけが親に返る」性質は同じです。この会話の冒頭で見える各種agent(Explore, Plan など)も、まさにこの仕組みです。</p>`,
+  points:[
+    `サブはまっさらな履歴で始まり、結論だけを返す。`,
+    `解決する課題はコンテキスト汚染(履歴の膨張による物忘れ)。`,
+    `サブにはサブを生む道具を渡さず、無限再帰を防ぐ。`,
+    `隔離されるのは履歴だけ。ファイル変更などの副作用は残る。`
+  ]
+},
+{
+  id:"s07", cat:"plan", icon:"📜", title:"スキル",
+  one:"専門知識を普段はプロンプトに載せず、必要なときだけ取り寄せて読む仕組み。",
+  merit:"巨大なプロンプトのトークン無駄を防ぐ。AIに専門手順を「必要時だけ」与える発想が分かる。",
+  why:`<p>解決するのは<strong>「知識の詰め込みすぎによるトークンの無駄」</strong>です。React・SQL・API設計…と全部システムプロンプトに入れると巨大化し、<strong>CSSの色を1つ変えるだけでも毎回SQLの説明書まで運ぶ</strong>ことに。無駄なうえ、ノイズでAIの集中も下がります(情報は少ないほどLLMは集中できる)。</p>
+  <ul><li>普段は<strong>軽い目録だけ</strong>持ち、必要な作業のときだけ本文を読む。トークン効率が大きく改善します。</li></ul>`,
+  what:`<p>スキルは、専門知識をまとめた<strong>Markdownファイル(SKILL.md)</strong>。冒頭の設定欄(フロントマター)に名前と一行説明があり、本文に詳しい手順が書かれています。エージェントは必要なときだけこれを呼び出します。合言葉は<strong>「必要なときに読め、プロンプトに詰め込むな」</strong>。</p>`,
+  how:[
+    `2層構造です。<strong>①起動時</strong>：各SKILL.mdの「名前+一行説明」だけを集めた軽い目録(1件≒100トークン)をシステムプロンプトに常駐。<strong>②実行時</strong>：必要になったら<code class="inline">load_skill(名前)</code>で本文(≒2000トークン)を読み込み、<strong>会話履歴に</strong>差し込む。`,
+    `この「発見→判断→実行」の3段階を<strong>段階的開示</strong>と呼びます。読み込んだSKILL.mdは「地図」として、その後のファイル読み込みを関連リソースへ導きます。`
+  ],
+  analogy:`料理人の<strong>本棚</strong>です。全レシピ本を抱えて歩く(=巨大プロンプト)のは非効率。普段は<strong>背表紙(タイトル一覧=目録)</strong>だけ把握し、フランス料理を作るときだけ『フランス料理大全』を棚から取り出す(=load_skill)。さらにその本が「詳しくはソースの章へ」と案内してくれます。`,
+  cc:`<p>本物のCCの<strong>スキル機能</strong>に対応します。この会話の冒頭に並ぶ「session-start-hook」「deep-research」などの一覧こそ、まさにこの目録(第1層)の実物です。実際は条件付き起動や許可ツールの指定など、より高機能です。</p>`,
+  points:[
+    `合言葉は「必要なときに読め、プロンプトに詰め込むな」。`,
+    `2層：起動時に目録(軽い)、実行時に本文(重い)を読む。`,
+    `本文はシステムプロンプトではなく会話履歴に入る。`,
+    `SKILL.mdは「地図」。そこから関連リソースへ展開する。`
+  ]
+},
+{
+  id:"s10", cat:"plan", icon:"📝", title:"システムプロンプト",
+  one:"AIへの指示文を固定にせず、実行時の状態に応じて必要な部品だけを組み立てて作る技術。",
+  merit:"なぜ毎回プロンプトに環境情報が差し込まれるのか分かる。保守性とトークン効率の両立。",
+  why:`<p>固定の指示文には3つの問題があります。①<strong>保守性</strong>：変更のたびに全体を書き直す ②<strong>整合性</strong>：1か所直すと他と矛盾しやすい ③<strong>トークン効率</strong>：不要な内容も毎回送って無駄。</p>
+  <ul><li>部品(セクション)ごとに独立して直せて<strong>矛盾が起きにくく</strong>、関係ある部品だけ入るので<strong>トークンを節約</strong>できます(メモリが無いのにメモリ欄を入れる無駄が消える)。</li></ul>`,
+  what:`<p>システムプロンプト(AIへの指示文)を、固定の文字列ではなく<strong>モジュール化された部品</strong>から実行時に組み立てます。「どの部品を入れるか」は、その時の<strong>実際の状態</strong>(どの道具が有効か、メモリファイルが在るか等)で決めます。</p>`,
+  how:[
+    `「常に入れる部品(身元・道具一覧・作業フォルダ)」と「状態次第の部品(メモリ・スキル)」を分けます。入れる判断は<strong>キーワード推測ではなく事実</strong>(ファイルが実在するか、道具が登録されているか)で行うのがコツ。`,
+    {code:`sections = [identity, tools, workspace]   # 常に入れる
+if メモリファイルが存在:
+    sections.append(memory_section)        # 状態次第で入れる
+prompt = "\\n\\n".join(sections)`}
+  ],
+  analogy:`<strong>身だしなみ</strong>です。固定プロンプトは「夏でも冬でも、コートも水着も全部着て出かける」ようなもの。動的生成は、その日の天気(=状態)を見て<strong>必要な服だけ着る</strong>こと。雨なら傘(=メモリ欄)を持ち、晴れなら持たない。`,
+  cc:`<p>本物のCCのシステムプロンプトもこのように動的に組み立てられています。<strong>この会話の冒頭</strong>を見ると、作業ディレクトリ・OS・git状態、使えるエージェント一覧、MCPサーバーの説明、スキルの目録などが<strong>その時の状態に応じて差し込まれて</strong>いるのが実物の例です。</p>`,
+  points:[
+    `指示文は固定でなく、実行時に部品から組み立てる。`,
+    `「常に必要な部品」と「状態次第の部品」を分ける。`,
+    `入れる判断はキーワード推測でなく実際の状態(ファイルの実在等)で。`,
+    `同じ状態なら作り直さずキャッシュを使い回す。`
+  ]
+},
+{
+  id:"s11", cat:"plan", icon:"🩹", title:"エラー回復",
+  one:"エラーを種類ごとに見分け、それぞれに合った立て直し策(再試行・圧縮・モデル切替)を打つ仕組み。",
+  merit:"なぜ本番のAIが落ちずに動き続けられるのか。安定運用の裏側が分かる。",
+  why:`<p>解決するのは<strong>「本番での不安定さ」</strong>です。実運用ではAPIの失敗は日常茶飯事。エラー処理が無いと最初の失敗で即クラッシュ＝<strong>「最初の段差で止まる車」</strong>で使い物になりません。</p>
+  <ul><li>「立て直せる失敗」と「致命的な失敗」を区別し、立て直せるものは<strong>自動で回復して作業を続行</strong>。一時的な混雑でも諦めず適切に待って再試行します。結果として長時間・本番運用に耐えます。</li></ul>`,
+  what:`<p>LLM呼び出しを<code class="inline">try/except</code>で包み、エラーを<strong>分類</strong>して種類別の処理に振り分けます。合言葉は<strong>「エラーは終わりではなく、再試行の始まり」</strong>。</p>`,
+  how:[
+    `3大パターン：①<strong>出力の途中切れ</strong>→上限を拡大して継続(最大3回)。②<strong>文脈の溢れ</strong>→圧縮して1回だけ再試行。③<strong>混雑(レート制限/過負荷)</strong>→<strong>指数バックオフ</strong>(待ち時間を倍々に、上限32秒、ランダムなゆらぎ付き)で再試行、続けば予備モデルに切替。`,
+    `ゆらぎ(ジッター)の意味：全員が同時に再試行して再び混雑させる<strong>「雷鳴の群れ」</strong>を防ぐため。回復には上限があり、効果が薄い(収穫逓減)と見たら潔く止めます。`
+  ],
+  analogy:`電話がつながらないときの<strong>かけ直し方</strong>です。話が途中で切れたら最初からでなく「さっきの続きから」(途中切れの継続)。荷物が多すぎるなら不要な物を置いて出直す(圧縮)。回線が混んでいたら<strong>少しずつ長めに、しかも人ごとに少しずらして</strong>かけ直す(ジッター付きバックオフ)。何度もダメなら別番号へ(予備モデル)。`,
+  cc:`<p>本物のCCのエラー回復に対応します。教材は最頻の3パターンに絞っていますが、本番は画像処理エラー・ストリーミング中断・ツール失敗など<strong>13種類以上</strong>の理由コードを扱います。</p>`,
+  points:[
+    `合言葉は「エラーは終わりではなく、再試行の始まり」。まず分類する。`,
+    `3大パターン：途中切れ(継続)/文脈溢れ(圧縮)/混雑(バックオフ→モデル切替)。`,
+    `バックオフはジッター付き指数(雷鳴の群れ防止)。`,
+    `回復には上限あり。収穫逓減を見たら止める。`
+  ]
+},
+
+/* ===== レイヤー3：メモリ管理 ===== */
+{
+  id:"s08", cat:"memory", icon:"🗜️", title:"コンテキスト圧縮",
+  one:"会話履歴が上限を溢れさせる前に、安い処理から順に「たたんで」空きを作る仕組み。",
+  merit:"なぜ長い会話で急に過去を忘れるのか、なぜ大規模作業が途中で止まらないのかが分かる。",
+  why:`<p>AIの記憶は<strong>「作業机(コンテキストウィンドウ)」の上だけ</strong>。机が一杯になると新しい情報を置けず、処理が拒否されて<strong>急に止まります</strong>。圧縮はこれを防ぐ、大規模コードベースを扱う必須技術です。</p>
+  <ul><li><strong>「なぜ会話を続けると過去を忘れたように見えるか」</strong>が分かる：自動圧縮が走ると、過去の細かいやり取りは要約に置き換わるから。だから大事なことは先にメモリ(s09)へ、という対策が打てます。</li>
+  <li>トークン=お金。圧縮を理解すると<strong>コスト削減</strong>のコツ(<code class="inline">/clear</code>や<code class="inline">/compact</code>)も活きます。</li></ul>`,
+  what:`<p>膨らんだ会話履歴を「最近の大事な部分は残し、古く不要な部分を削る/要約する」ことで空きを作り続けます。肝は<strong>「安い処理(ただの削除)から先に、高い処理(LLMでの要約)は最後に」</strong>という順序です。</p>`,
+  how:[
+    `4段階を安い順に重ねます。<strong>L1</strong> 古い真ん中のメッセージを間引く(ただし「呼び出しと結果」のペアは壊さない)→ <strong>L2</strong> 古い道具の結果を一行のプレースホルダに潰す → <strong>L3</strong> 巨大な出力(200KB超)をディスクへ退避しプレビューだけ残す → <strong>L4</strong> それでも溢れるならLLMで全体を要約。`,
+    `順序は絶対：L3(退避)がL2(潰す)より先でないと、巨大な出力が永久に失われます。原本は<code class="inline">.transcripts/</code>に保存して後から復元可能に。`
+  ],
+  analogy:`<strong>散らかる作業机の片付け</strong>です。まず手で片付く物(古い書類を脇へ＝L1、参考資料を箱へ＝L2、分厚い資料を書庫へ＝L3)を片付け、<strong>それでも一杯なら最後に秘書(LLM)に「1枚に要約して」と頼む(＝L4)</strong>。掃除機(高コストの要約)をかける前に、手で片付けるのが鉄則。`,
+  cc:`<p>本物のCCでは<strong><code class="inline">/compact</code></strong>(手動要約・焦点指定可)、<strong>auto-compact</strong>(上限手前で自動実行)、<strong><code class="inline">/clear</code></strong>(履歴リセット)として現れます。標準の机の広さは<strong>20万トークン</strong>。プロジェクト直下の<code class="inline">CLAUDE.md</code>は圧縮後も自動で読み直されます。</p>`,
+  points:[
+    `圧縮は4層：L1間引き→L2潰す→L3ディスク退避→L4 LLM要約。`,
+    `思想は「安い処理を先に、LLM要約は最後に」。順序は絶対。`,
+    `「呼び出しと結果」のペアは壊さない。原本は別途保存。`,
+    `実機能は /compact(手動)・auto-compact(自動)・/clear(リセット)。`
+  ]
+},
+{
+  id:"s09", cat:"memory", icon:"🧠", title:"メモリ",
+  one:"圧縮でもセッション終了でも消えない「外部の記憶層」。一度言えば次回も覚えている仕組み。",
+  merit:"毎回同じ説明を繰り返す手間が消える。なぜ使い込むほど手に馴染むのかが分かる。",
+  why:`<p>AIには永続的な記憶がなく、そのままでは「昨日言ったこと」も圧縮で消えた細部も忘れます。メモリは<strong>「机の外に置いた金庫」</strong>。</p>
+  <ul><li><strong>毎回同じ説明を繰り返す苦痛から解放</strong>：「うちはpnpmを使う」を一度言えば以降も反映。</li>
+  <li><strong>圧縮(s08)の弱点を補完</strong>：圧縮は細部を捨てますが、メモリはその細部を圧縮の外側に保存します。両者は補完関係。</li>
+  <li>製品版はあなたの修正から<strong>AIが自分でメモを取る</strong>ので、使うほど手に馴染みます。</li></ul>`,
+  what:`<p>メモリは<strong>圧縮にもセッション喪失にも巻き込まれないストレージ層</strong>です。会話が要約されて「コードスタイルの好みがある」と丸められても、メモリ側には「<strong>タブを使う、スペース禁止</strong>」という具体が残り続けます。</p>`,
+  how:[
+    `保存形式は<strong>設定欄付きのMarkdownファイル</strong>。索引<code class="inline">MEMORY.md</code>(全メモリの目録)は<strong>システムプロンプトに常駐</strong>し、本文は<strong>必要なときだけ(最大5件)読み込み</strong>ます(s07スキルと同じ「目録常駐＋本文オンデマンド」)。`,
+    `書き込みは「覚えて」と明示する方法と、ターンが自然に終わったとき会話から<strong>自動抽出</strong>する方法の2つ。溜まったら重複・矛盾・陳腐化を<strong>統合</strong>して整理します。`
+  ],
+  analogy:`新しく入った優秀なアシスタントの<strong>業務手帳</strong>です。毎朝記憶ゼロで出社しますが(=毎回まっさら)、引き出しの手帳の<strong>目次を必ず読む</strong>。あなたが「タブで書いて」と言えば該当ページに書き留め(=自動抽出)、今日に関係するページだけ開く(=最大5件)。打ち合わせメモ(会話)は夕方要約され細部が消えても、<strong>手帳に書いた「あの人はタブ派」は消えません</strong>。`,
+  cc:`<p>本物のCCには2系統あります。<strong>CLAUDE.md</strong>(人が書く永続指示。<code class="inline">/init</code>で雛形生成、<code class="inline">#</code>で追記)と、<strong>Auto memory</strong>(AIが自分の学びを<code class="inline">~/.claude/projects/.../memory/</code>に貯める)。どちらも<code class="inline">/memory</code>で確認・編集でき、起動時は<code class="inline">MEMORY.md</code>の先頭だけ読み込みます。</p>`,
+  points:[
+    `メモリは圧縮にもセッション終了にも巻き込まれない外部ストレージ。`,
+    `圧縮(s08)が失う細部を守る補完関係にある。`,
+    `索引は常駐、本文はオンデマンドで最大5件ロード。`,
+    `実機能はCLAUDE.md(人が書く)とAuto memory(AIが貯める)の2系統。`
+  ]
+},
+
+/* ===== レイヤー4：並行処理 ===== */
+{
+  id:"s13", cat:"concur", icon:"🧵", title:"バックグラウンドタスク",
+  one:"時間のかかる処理を裏で動かし、エージェントは待たずに次へ進み、終わったら通知で受け取る仕組み。",
+  merit:"遅いビルド等の待ち時間とトークン代を節約。同時並行で速く働ける理由が分かる。",
+  why:`<p><code class="inline">pip install</code>は10分、<code class="inline">npm run build</code>は3分かかることも。普通に実行すると、その間エージェントは<strong>ただ待つだけ</strong>で、待機中もトークン課金が発生し<strong>お金と時間を無駄に</strong>します。</p>
+  <ul><li>ビルドを走らせながら<strong>同時に</strong>設定を読む・コードを書ける(並行作業)。</li>
+  <li>「待つだけのターン」が消えて<strong>トークン節約</strong>。全体の所要時間が「最も遅い処理1つ分」に近づきます。</li></ul>`,
+  what:`<p>遅い処理を、メインの思考ループとは別の<strong>裏方スレッド</strong>で動かします。エージェントには即座に<strong>「受付番号(<code class="inline">bg_0001</code>のようなID)」</strong>だけを返し、本人は別作業へ。処理が終わると、後のターンで<strong>通知メッセージ</strong>として結果が差し込まれます(=非同期実行)。</p>`,
+  how:[
+    `裏で走らせるかの判定は「①モデルが<code class="inline">run_in_background</code>で明示→②キーワード(install, build, test…)で推測」の順。起動時はIDとプレースホルダを即返し、完了は後のターンで回収します。`,
+    `設計の肝：APIの「1つの要求には1つの結果」ルールを守るため、完了結果は元のIDを使い回さず<strong>独立した通知メッセージ</strong>として差し込みます。`
+  ],
+  analogy:`<strong>洗濯機</strong>です。洗濯物を入れてスタートを押したら(=裏で起動)、回り終わるまで前で見張りません。その間に料理や掃除をして(=他の作業)、終了ブザーが鳴ったら干しに行く(=完了通知)。受付番号は、クリーニング店の<strong>引換券</strong>のようなもの。`,
+  cc:`<p>本物のCCの<code class="inline">Bash</code>ツールの<strong><code class="inline">run_in_background</code></strong>フラグに対応し、結果は<code class="inline">BashOutput</code>で後から取得します。約45秒応答がないと「対話待ちで固まった」と検知するウォッチドッグや、同時実行数の上限もあります。</p>`,
+  points:[
+    `遅い処理を裏方スレッドで非同期実行し、待たずに次へ進む。`,
+    `起動時にID＋プレースホルダを即返し、完了は後のターンで通知回収。`,
+    `判定は①モデルの明示→②キーワード推測の順。`,
+    `「1要求=1結果」を守るため、結果は独立した通知として注入する。`
+  ]
+},
+{
+  id:"s14", cat:"concur", icon:"⏰", title:"Cron スケジューラー",
+  one:"「毎朝9時」「30分ごと」のような定期タスクを、人が押さなくてもエージェント自身に自動実行させる仕組み。",
+  merit:"夜間バッチや定期監視を完全自動化。人の記憶に頼らず確実に動かせる。",
+  why:`<p>「毎朝9時にテスト」「30分ごとにCI確認」を<strong>人が毎回手で起動するのは非効率</strong>(忘れる・夜間や不在時にできない)。</p>
+  <ul><li><strong>完全自動化</strong>：人がいなくても定刻に勝手に動く。</li>
+  <li>「9時に実行するのを覚えておく」という不確かなモデルの記憶に頼らず、<strong>土台が確実に発火</strong>させます。</li></ul>`,
+  what:`<p>時刻ベースのルール(<strong>cron式</strong>)に従って、決まった時間に自動でタスクを発火させます。最大の設計思想は<strong>「スケジューリングと実行の分離」</strong>。「いつ動かすか」を決める係と「実際に動かす」係を分け、エージェントが他の作業中でも取りこぼしなく予約を処理します。</p>`,
+  how:[
+    `cron式は5フィールド「分 時 日 月 曜日」。例：<code class="inline">0 9 * * *</code>＝毎日9時、<code class="inline">*/5 * * * *</code>＝5分ごと、<code class="inline">0 9 * * 1-5</code>＝平日9時。`,
+    `スケジューラは1秒ごとに時刻を確認し、発火時刻ならキューへ。<strong>エージェントが空いているとき</strong>に取り出して実行します。「最後に発火した分」を記録して<strong>1分1回</strong>に絞り、二重発火を防ぎます。`
+  ],
+  analogy:`<strong>目覚まし時計＋秘書</strong>です。cron式＝アラーム設定(「平日7時」)。1秒ごとのチェック＝常に時計を見ている秘書。「あなたは今手が空いていますね、では予約の件を」と<strong>空き時間に持ってくる</strong>のがキュー処理。予定を手帳に書いておけば(durable)、電源を切っても消えません。`,
+  cc:`<p>本物のCCの<strong><code class="inline">CronCreate</code> / <code class="inline">CronDelete</code> / <code class="inline">CronList</code></strong>ツールに対応します(この環境にも実在)。本番は、同時大量発火を散らすジッター、ジョブ数上限(50件)、自動期限切れ(既定7日)など暴走防止が揃っています。</p>`,
+  points:[
+    `cron式(分 時 日 月 曜日)で「いつ動かすか」を宣言する。`,
+    `核は「スケジューリングと実行の分離」(予約係と実行係を分ける)。`,
+    `1秒ごとに確認、ただし1分1回に絞って二重発火を防ぐ。`,
+    `実機能はCronCreate/Delete/List。本番はジッター・上限・失効付き。`
+  ]
+},
+
+/* ===== レイヤー5：マルチエージェント基盤 ===== */
+{
+  id:"s12", cat:"multi", icon:"🗂️", title:"タスクシステム",
+  one:"曖昧な大目標を、依存関係つき・状態つき・ファイルに保存された「順序ある作業リスト」に変える仕組み。",
+  merit:"手順ミスを防ぎ、中断しても再開でき、複数のAIで安全に分担できる。",
+  why:`<p>s05のTodoWriteは「セッション上のメモ」にすぎず限界がありました。タスクシステムはそれを解決します。</p>
+  <ul><li><strong>順序を守れる</strong>：「屋根を建ててから基礎を打つ」事故を、依存関係(<code class="inline">blockedBy</code>)で防ぐ。</li>
+  <li><strong>中断しても再開できる</strong>：JSONファイルに保存するので、再起動しても続きから。</li>
+  <li><strong>複数で分担できる</strong>：担当(owner)を記録し、同じ仕事を2体がやる事故を防ぐ。</li></ul>`,
+  what:`<p>大きなゴールを小さな「タスク」に分解し、それぞれを<strong>1個のJSONファイル</strong>としてディスクに保存します。各タスクはID・状態・<strong>依存(blockedBy)</strong>・担当(owner)を持ちます。状態は<code class="inline">pending→in_progress→completed</code>の一方向。タスク同士を矢印でつないだ図を<strong>タスクグラフ(DAG)</strong>と呼びます(ループしないのでデッドロックしない)。</p>`,
+  how:[
+    `中心はシンプル：作成・着手可能か判定(依存が全部completedか)・確保(claim:自分のものにしてin_progressへ)・完了(complete:同時に「新たに着手可能になった下流」を洗い出す)。`,
+    {code:`schema    = create("DBスキーマ作成")
+endpoints = create("API作成", blockedBy=[schema.id])
+
+claim(schema.id); complete(schema.id)
+# → endpoints が「着手可能」に解放される
+claim(endpoints.id)   # schema完了済みなので通る`}
+  ],
+  analogy:`<strong>料理の段取り表</strong>です。「炒める」は「切る」が終わってから(=依存)。各工程に付箋を貼り「未着手→調理中→完成」と色を変える(=状態)。冷蔵庫に貼っておけば買い物に出ても帰って続けられる(=ファイル保存)。家族で手分けするとき名前を書けば(=owner)、二人が同じ料理を作る無駄を防げます。`,
+  cc:`<p>本物のCCの<strong><code class="inline">TaskCreate</code> / <code class="inline">TaskGet</code> / <code class="inline">TaskUpdate</code> / <code class="inline">TaskList</code></strong>ツールに対応します(この環境にも実在)。ファイルロックで「確認した直後に他者に取られる」競合を防ぎ、複数エージェントの安全な並行作業を実現します。</p>`,
+  points:[
+    `タスク=ID・状態・依存・担当を持つJSONファイル1個。ディスクに永続化。`,
+    `状態は pending→in_progress→completed の一方向。`,
+    `依存(blockedBy)で順序を表現。依存元が全部完了するまで着手不可。`,
+    `実機能はTaskCreate/Get/Update/List。ロックで二重取得を防ぐ。`
+  ]
+},
+{
+  id:"s15", cat:"multi", icon:"👥", title:"エージェントチーム",
+  one:"リーダーAIが複数の仲間AIを生み、各自が別作業をしながら「郵便受け」で連絡し合い並行で働く仕組み。",
+  merit:"1人では抱えきれない大規模プロジェクトを、専門分担＋並行で速くこなせる。",
+  why:`<p>解決するのは<strong>「1人のエージェントでは複雑なプロジェクトを抱えきれない」</strong>問題です。大規模リファクタリングでは認証・DB・API・テストに同時に手を入れる必要があり、1体では<strong>コンテキストが足りず</strong>、今いじっている所以外を忘れます。</p>
+  <ul><li><strong>専門分担</strong>(担当を分けて各自集中)＋<strong>並行で高速化</strong>＋<strong>リードの記憶がパンクしない</strong>(各仲間が自分の文脈で作業し結果だけ報告)。</li></ul>`,
+  what:`<p>中心の<strong>リード(リーダー役)</strong>が、必要なだけ<strong>仲間(ティームメイト)</strong>を生みます。各仲間は自分専用の作業ライン(スレッド)と<strong>受信箱</strong>を持ち、互いに<strong>非同期</strong>(相手の都合を待たず)に連絡します。設計思想は<strong>「チームとはメールボックスのこと」</strong>。</p>`,
+  how:[
+    `通信は<strong>ファイルベースの郵便受け</strong>：相手の受信箱ファイル(.jsonl)に1行追記するだけ。中央の司令塔も共有メモリも持たず、メッセージのやり取りだけから協調が生まれます。`,
+    `仲間を生めるのは<strong>リードだけ</strong>(仲間は仲間を生めない＝暴走防止)。リードは1処理ごとに受信箱を確認し、届いた連絡を自分の会話に差し込みます(=インボックス注入)。`
+  ],
+  analogy:`<strong>料理長(リード)と複数の調理スタッフ(仲間)がいる厨房</strong>です。料理長は「Aさんは前菜、Bさんはメイン」と役割を割り振り、スタッフは別々の調理台(独立スレッド)で同時に手を動かします。できたら料理長の<strong>注文受けスパイク(受信箱)</strong>に伝票を刺し、料理長は手が空いたとき見て全体を把握。「今すぐ返事して!」と待つ必要がないのが肝。`,
+  cc:`<p>本物のCCは受信箱を<code class="inline">~/.claude/teams/</code>に置き、ファイルロックで安全に書き込みます。メッセージは<strong>15種類</strong>(許可要求、終了要求、手が空いた通知など)に構造化されています。</p>`,
+  points:[
+    `リード1人＋仲間N人。仲間を生めるのはリードだけ(暴走防止)。`,
+    `通信は.jsonlファイルへの追記=メールボックス方式(中央司令塔なし)。`,
+    `インボックス注入で、リードは仲間の進捗を自然に会話へ取り込める。`,
+    `狙いはコンテキスト回避・並行高速化・専門分担の同時達成。`
+  ]
+},
+{
+  id:"s16", cat:"multi", icon:"📨", title:"チームプロトコル",
+  one:"エージェント同士のメッセージに決まった型を持たせ、「要求」と「応答」を同じIDで確実にひも付ける仕組み。",
+  merit:"やり取りの取りこぼしゼロと、危険操作の暴走防止を、1つのシンプルな仕組みで実現。",
+  why:`<p>s15で連絡はできても、自由なテキストだけだと大事な合意ごと(本当に終了していい?このプランを実行していい?)で取りこぼしが起きます。特に2つの場面で破綻します。</p>
+  <ul><li><strong>安全な終了</strong>：いきなりスレッドを殺すと、書きかけファイルが中途半端に残る。「終了します/了解、片付けました」の握手が要る。</li>
+  <li><strong>プランの承認ゲート</strong>：危険度の高い操作は、実行前に必ずリードの承認を得る関門が要る。</li></ul>`,
+  what:`<p>やり取りに<strong>明示的なメッセージ契約</strong>を導入します。すべてを「<strong>要求→応答</strong>」のペアにし、両者に同じ<strong><code class="inline">request_id</code>(整理番号)</strong>を持たせます。これで「どの要求への返事か」が必ず分かります。合言葉は<strong>「相関こそ重要、複雑な儀式は不要」</strong>。</p>`,
+  how:[
+    `1つの状態機械(<code class="inline">pending→approved/rejected</code>)で、終了・プラン承認など複数の用途を共通に扱えます。応答の照合時に「種類が要求と一致するか」を検証するので、別の応答が誤って承認に使われる事故を防げます。`,
+    `これに伴い仲間の動きも「決まった回数で終了」から、受信箱を見張り続ける<strong>アイドルループ</strong>に進化します。`
+  ],
+  analogy:`<strong>宅配便の追跡番号</strong>です。荷物を送ると番号が発行され、「集荷しました」「配達完了」がすべて同じ番号にひも付きます。番号があるから、たくさんの荷物が飛び交っても<strong>「どの荷物の話か」を絶対に間違えません</strong>。request_idはまさにこの追跡番号です。`,
+  cc:`<p>本物のCCの実装は同じ構造をより厳密にしたもので、終了は<strong>3者間</strong>(リードが要求→仲間が承認/却下→システムが全員に終了を通知)で行われ、データの型を厳密に検証し、未承認の危険操作は自動的に遮断されます。</p>`,
+  points:[
+    `すべてを「要求→応答」にし、同じrequest_idでひも付ける(相関が命)。`,
+    `状態機械は1つ(pending→approved/rejected)で複数用途を共通化。`,
+    `応答の「種類一致」を検証し、取り違え事故を防ぐ。`,
+    `仲間は「回数で終了」から「アイドルループで待機」へ進化する。`
+  ]
+},
+{
+  id:"s17", cat:"multi", icon:"🧭", title:"自律エージェント",
+  one:"リードが割り振るのでなく、仲間が自分で「タスクボード」を見て空いている仕事をつかんで進める仕組み。",
+  merit:"手動割り当ての渋滞を解消。チームを大きくしてもリードが詰まらない(スケールする)。",
+  why:`<p>解決するのは<strong>「手動の割り当てはスケールしない」</strong>問題です。未割り当てのタスクが10個あれば、リードは10回も手動で割り当てねばならず、チームを大きくするほど<strong>リードがボトルネック(渋滞の元)</strong>になります。</p>
+  <ul><li>リードは<strong>「タスクを作るだけ」</strong>でよく、誰がどれをやるかは仲間が決める(協調が自然に立ち上がる)。仲間は1つ終えたら次を取りに行くので<strong>手待ちが減る</strong>。</li></ul>`,
+  what:`<p>仲間が、手が空いている間に共有の<strong>タスクボード</strong>を定期的に見に行き、条件を満たす未着手タスクを<strong>自分でつかむ(claim)</strong>仕組みです。「エージェントは、自分で仕事を見つけてつかめて初めて本当に役立つ」。</p>`,
+  how:[
+    `ライフサイクルは3フェーズ：<strong>WORK</strong>(作業)→<strong>IDLE</strong>(5秒ごと×最大60秒、空き仕事や連絡を見に行く)→<strong>SHUTDOWN</strong>(終了)。`,
+    `つかむ条件は3つすべて：①状態がpending ②持ち主がいない ③依存(blockedBy)が全部完了。終了要求はどのフェーズでも<strong>最優先</strong>で処理します。`
+  ],
+  analogy:`<strong>オフィスの「やることリスト」掲示板</strong>です。従来は上司(リード)が一人ずつ「君はこれ」と割り振っていました。自律エージェントでは、社員(仲間)が休憩のたびに掲示板を見て、<strong>空いている仕事のカードを自分で取って外して</strong>いきます。上司の仕事は「カードを貼る」だけ。`,
+  cc:`<p>本物のCCは、手が空いた通知・約0.5秒ごとの受信箱確認・ファイル監視・能動的なタスク獲得を組み合わせます。<strong>ファイルロック</strong>で「複数の仲間が同じタスクを同時に取る競合」を防ぎます(教材版は後追いで検出)。</p>`,
+  points:[
+    `リードは作るだけ、仲間が自分で取る=割り当ての渋滞を解消(スケール)。`,
+    `WORK→IDLE→SHUTDOWNの3フェーズ。IDLEは5秒ごと×60秒。`,
+    `獲得条件は「pending・持ち主なし・依存完了」の3つ。`,
+    `終了要求は常に最優先。製品版はロックで二重取得を防ぐ。`
+  ]
+},
+{
+  id:"s18", cat:"multi", icon:"🌳", title:"Worktree 分離",
+  one:"複数のAIが同じファイルを同時に書いて壊し合わないよう、タスクごとに別々の作業フォルダ(と専用ブランチ)を用意する仕組み。",
+  merit:"並行作業の上書き事故を根本解決。誰が何を変えたか追え、気に入らなければ捨てられる。",
+  why:`<p>解決するのは<strong>「並行作業による上書き事故」</strong>です。これを解決しないと「並列で速くする」というチームの利点が<strong>「壊し合いのリスク」</strong>に変わります。</p>
+  <ul><li><strong>並行しても安全</strong>(別フォルダで作業)＋<strong>追跡しやすい</strong>(タスクごとに専用ブランチで「何が変わったか」明確)＋<strong>やり直せる</strong>(気に入らなければブランチごと捨てる)。</li></ul>`,
+  what:`<p>gitの<strong>worktree</strong>機能を使います。worktreeとは、1つのgitリポジトリに<strong>複数の作業ディレクトリ</strong>をぶら下げられる仕組みで、それぞれが別のブランチを指せます。「タスクは目的を持ち、worktreeはディレクトリを持ち、両者をIDで結びつける」。合言葉は<strong>「ディレクトリを分ければ、衝突しない」</strong>。</p>`,
+  how:[
+    `タスクとworktreeを1対1で結びつけます。結びつけても<strong>タスクの状態はpendingのまま</strong>なので、リードが先回りして用意でき、仲間は来たとき自然に取れます(s17と噛み合う)。worktreeに紐づくタスクを取ると、以降の道具実行は自動でそのフォルダ内に切り替わります。`,
+    `後始末は2択：<strong>削除</strong>(ただし未コミットの変更が残っていると拒否=うっかり消失を防ぐ)か、<strong>保持</strong>(残して後で人間がレビュー・マージ)。`
+  ],
+  analogy:`1冊の設計図(リポジトリ)を、<strong>全員がコピーして別々の机で作業する</strong>イメージ。1枚の原本に同時に書き込むと上書きでぐちゃぐちゃになります。各自に作業コピー(worktree)を渡し、それぞれの机で書かせ、仕上がったら見比べて(レビュー)良いものだけ原本に反映(マージ)。要らないコピーは捨てられます。`,
+  cc:`<p>本物のCCには<strong><code class="inline">EnterWorktree</code></strong>(今のセッション用)と、サブエージェントを一時worktree内で自動実行する仕組みがあります。これにより複数のサブエージェントを別々のworktreeで同時に動かせます。(この環境のAgentツールにも<code class="inline">isolation: worktree</code>オプションがあります。)</p>`,
+  points:[
+    `課題は並行作業での同一ファイル上書き事故。フォルダを分けて根本解決。`,
+    `「タスク=目的、worktree=場所」をIDで結ぶ。結んでも状態はpendingのまま。`,
+    `紐づくタスクを取ると道具のCWDが自動でそのフォルダに切り替わる。`,
+    `後始末は削除(未コミットなら拒否)か保持(レビュー)の2択。`
+  ]
+},
+{
+  id:"s19", cat:"multi", icon:"🔌", title:"MCP ツール",
+  one:"外部サービス(Jira・Notionなど)を、共通プロトコルを通じて、実装言語に関係なくAIの道具として使えるようにする標準規格。",
+  merit:"「AIにとってのUSB-C」。一度作ればどのAIアプリからも使え、連携コストが激減する。",
+  why:`<p>解決するのは<strong>「外部サービスごとに専用の連携コードを毎回書き直す手間(M×Nの組み合わせ爆発)」</strong>です。サービスもAIアプリも増えるほど、組み合わせの数だけ実装が要ります。</p>
+  <ul><li><strong>一度作ればどこでも使える</strong>：あるサービスがMCPサーバーを1つ用意すれば、Claude・VS Code・Cursorなど対応するどのアプリからも使えます。連携コストが「サービス数×アプリ数」から「サービスごとに1回」へ激減。</li></ul>`,
+  what:`<p>MCP(Model Context Protocol)は、AIアプリを外部システムにつなぐ<strong>オープンな標準規格</strong>です。公式の比喩は<strong>「AIアプリにとってのUSB-Cポート」</strong>——どんな機器も同じ差し込み口でつなげるように、どんな外部ツールも同じやり方でAIにつなげます。</p>`,
+  how:[
+    `核は2つの操作の標準化：<strong>発見</strong>(<code class="inline">tools/list</code>でどんな道具があるか問い合わせる)と<strong>呼び出し</strong>(<code class="inline">tools/call</code>で実行)。エージェントは事前に道具を決め打ちせず、実行時に発見します。`,
+    `登場人物は<strong>ホスト</strong>(AIアプリ本体)・<strong>クライアント</strong>(接続役)・<strong>サーバー</strong>(外部サービス側)。名前は<code class="inline">mcp__サーバー名__道具名</code>の形式で衝突を防ぎます(例：<code class="inline">mcp__github__search_code</code>)。`
+  ],
+  analogy:`<strong>USB-C</strong>です。昔は機器ごとに専用ケーブルが必要で引き出しはケーブルだらけ(=サービスごとの専用連携)。USB-Cという共通規格ができてからは、1本でどの機器ともつながります。MCPはAIにとってのこの「共通の差し込み口」。新しい機器が来てもケーブルを作り直す必要はありません。`,
+  cc:`<p>本物のCCは複数の通信方式(同一マシン用のstdio、リモート用のHTTPなど)とOAuth認証に対応します。標準化される基本要素は<strong>Tools(動作)・Resources(文脈データ)・Prompts(テンプレート)</strong>の3つ。この会話で使える<code class="inline">mcp__github__*</code>などのツールが、まさにMCPの実物です。</p>`,
+  points:[
+    `MCPは「発見(tools/list)＋呼び出し(tools/call)」を標準化する共通接続規格。`,
+    `解決するのは「サービスごと・アプリごとに作り直すM×N問題」。`,
+    `登場人物はホスト・クライアント・サーバー。名前はmcp__server__toolで衝突回避。`,
+    `標準要素はTools・Resources・Promptsの3つ。実物がmcp__github__*など。`
+  ]
+},
+];
+
+const GLOSSARY = [
+  {t:"LLM / モデル", d:"大規模言語モデル。文章の続きを予測する形で「考える」AIの本体。Claude もこれ。判断はモデルが行う。"},
+  {t:"ハーネス (harness)", d:"モデルを実行環境につなぐ外側のプログラム全体。道具・知識・文脈管理・権限などを用意する「乗り物」。知能はモデル側、ハーネスは手足や環境。"},
+  {t:"トークン (token)", d:"AIが文章を処理する最小単位。単語より少し細かい。英語で1トークン≒4文字、日本語は1文字で1〜2トークンが目安。コードも出力もすべてトークン換算され、コストに直結する。"},
+  {t:"コンテキストウィンドウ", d:"AIが一度に頭に入れておける「作業机の広さ」。単位はトークン。Claudeの標準は20万トークン。一杯になると処理が止まる。"},
+  {t:"ツール / 道具", d:"エージェントが取れる行動の単位(コマンド実行、ファイル読み書きなど)。Claude Code では各機能がツールとして登録されている。"},
+  {t:"システムプロンプト", d:"会話の最初にAIへ与える「指示文・前提」。役割や使える道具、作業環境などを伝える。Claude Code では実行時に動的に組み立てられる。"},
+  {t:"stop_reason", d:"モデルの返事に付く「停止理由」。tool_use なら道具を使いたい(継続)、それ以外なら完了(終了)を意味し、ループの継続判断に使う。"},
+  {t:"非同期 (asynchronous)", d:"結果を待たずに次の作業へ進むやり方。メールのように「送っておけば後で読む」。反対は同期(終わるまでその場で待つ)。"},
+  {t:"スレッド (thread)", d:"プログラムが同時並行に処理を進めるための作業ライン。裏で動き続けるものをデーモンスレッドと呼ぶ。"},
+  {t:"ポーリング (polling)", d:"「変化があったか?」を定期的に見に行く方式。Cronのスケジューラや受信箱の確認で使う。"},
+  {t:"指数バックオフ / ジッター", d:"再試行の待ち時間を倍々に増やす方式がバックオフ。全員が同時に再試行して再び混雑する「雷鳴の群れ」を防ぐため、待ち時間にランダムなゆらぎ(ジッター)を足す。"},
+  {t:"DAG / 依存グラフ", d:"タスク同士を「AのあとB」という矢印でつないだ図。非巡回(ループしない)なので、互いに待ち合う膠着(デッドロック)が起きない。"},
+  {t:"git / ブランチ / コミット", d:"gitは変更履歴を管理する仕組み。ブランチは履歴を枝分かれさせて本流を汚さず作業すること、コミットは変更を確定して記録すること。"},
+  {t:"worktree", d:"1つのgitリポジトリに複数の作業ディレクトリをぶら下げる機能。エージェントごとに別フォルダで作業させ、ファイルの衝突を防ぐ。"},
+  {t:"フロントマター", d:"Markdownファイルの冒頭に --- で囲んで書く設定欄。スキルやメモリの「名前」「説明」などのメタ情報を入れる。"},
+  {t:"パストラバーサル", d:"../../ などを使って想定外の場所のファイルにアクセスする攻撃手口。ファイル系ツールはこれを防ぐ検証を入れる。"},
+  {t:"MCP", d:"Model Context Protocol。外部サービスをAIの道具として標準的な手順でつなぐ規格。「AIにとってのUSB-C」。"},
+  {t:"コンテキスト汚染", d:"中間作業のログで会話履歴が膨らみ、AIが本来の目的を見失う現象。サブエージェントや圧縮で対策する。"}
+];
+
+/* ============================================================ レンダリング ============================================================ */
+const esc = s => (s==null?"":String(s)).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+function renderHow(how){
+  if(Array.isArray(how)) return how.map(h=> h&&h.code ? `<pre>${esc(h.code)}</pre>` : `<p>${h}</p>`).join("");
+  return `<p>${how||""}</p>`;
+}
+function topicCard(t){
+  if(t.placeholder){
+    return `<article class="topic" id="${t.id}" data-search="${esc(t.title)} ${esc(t.id)}">
+      <div class="thead"><div class="tbadge">${t.icon}</div>
+      <div class="ttitle"><div class="tid">${t.id.toUpperCase()}</div><h3>${esc(t.title)}</h3>
+      <div class="tone empty-hint">内容を準備中です…</div></div></div></article>`;
+  }
+  const pts = (t.points||[]).map(p=>`<li>${p}</li>`).join("");
+  return `<article class="topic" id="${t.id}" data-search="${esc(t.title+' '+t.id+' '+(t.one||''))}">
+    <div class="thead" onclick="toggleTopic('${t.id}')">
+      <div class="tbadge">${t.icon}</div>
+      <div class="ttitle">
+        <div class="tid">${t.id.toUpperCase()}</div>
+        <h3>${esc(t.title)}</h3>
+        <div class="tone">${esc(t.one)}</div>
+      </div>
+      <div class="tchev">▼</div>
+    </div>
+    <div class="tbody">
+      <div class="block bl-why"><span class="blabel">💡 なぜ学ぶ?(メリット)</span>${t.why}</div>
+      <div class="block bl-what"><span class="blabel">📘 概念</span>${t.what}</div>
+      <div class="block bl-how"><span class="blabel">⚙️ 仕組み</span>${renderHow(t.how)}</div>
+      <div class="block bl-ana"><span class="blabel">🌱 身近なたとえ</span><div class="analogy">${t.analogy}</div></div>
+      <div class="block bl-cc"><span class="blabel">🔧 実物(Claude Code)との対応</span>${t.cc}</div>
+      <div class="keypoints"><span class="blabel">✅ 要点</span><ul>${pts}</ul></div>
+    </div>
+  </article>`;
+}
+function render(){
+  // ナビ
+  let nav = `<a class="nav-link top" href="#why">💡 なぜ学ぶの?</a>
+             <a class="nav-link top" href="#model">🧠 メンタルモデル</a>
+             <a class="nav-link top" href="#cheatsheet">📋 メリット早見表</a>`;
+  let topics = "";
+  CATEGORIES.forEach(c=>{
+    const list = TOPICS.filter(t=>t.cat===c.key);
+    if(!list.length) return;
+    nav += `<div class="nav-group"><span class="nav-cat">${c.title}</span>`;
+    list.forEach(t=> nav += `<a class="nav-link" href="#${t.id}"><span class="nid">${t.id.toUpperCase()}</span>${esc(t.title)}</a>`);
+    nav += `</div>`;
+    topics += `<section class="cat-header" id="cat-${c.key}">
+      <div class="cat-kicker">${c.kicker}</div><h2>${c.title}</h2><p>${c.desc}</p></section>`;
+    list.forEach(t=> topics += topicCard(t));
+  });
+  nav += `<a class="nav-link top" href="#glossary" style="margin-top:10px">📚 用語ミニ辞典</a>`;
+  document.getElementById("navContent").innerHTML = nav;
+  document.getElementById("topics").innerHTML = topics;
+
+  // 早見表
+  document.getElementById("cheatBody").innerHTML = TOPICS.filter(t=>!t.placeholder).map(t=>
+    `<tr onclick="location.hash='#${t.id}';openTopic('${t.id}')" style="cursor:pointer">
+      <td><span class="mini-id">${t.id.toUpperCase()}</span></td>
+      <td><strong>${esc(t.title)}</strong></td>
+      <td>${esc(t.merit||t.one)}</td></tr>`).join("");
+
+  // 用語集
+  document.getElementById("glossaryList").innerHTML = GLOSSARY.map(g=>
+    `<dt>${esc(g.t)}</dt><dd>${esc(g.d)}</dd>`).join("");
+}
+
+/* ============================================================ 操作 ============================================================ */
+function toggleTopic(id){ document.getElementById(id).classList.toggle("open"); }
+function openTopic(id){ const el=document.getElementById(id); if(el){el.classList.add("open"); el.scrollIntoView({behavior:"smooth",block:"start"});} }
+
+function initEvents(){
+  // テーマ切替（メモリ内のみ・保存しない）
+  const tt=document.getElementById("themeToggle");
+  tt.onclick=()=>{
+    const cur=document.documentElement.getAttribute("data-theme")==="dark"?"light":"dark";
+    document.documentElement.setAttribute("data-theme",cur);
+    tt.textContent = cur==="dark"?"☀️":"🌙";
+  };
+  // モバイルメニュー
+  const sb=document.getElementById("sidebar"), mt=document.getElementById("menuToggle");
+  mt.onclick=()=>sb.classList.toggle("open");
+  sb.addEventListener("click",e=>{ if(e.target.classList.contains("nav-link")) sb.classList.remove("open"); });
+  // 検索
+  const box=document.getElementById("searchBox");
+  box.oninput=()=>{
+    const q=box.value.trim().toLowerCase();
+    document.querySelectorAll(".nav-link").forEach(a=>{
+      if(!a.getAttribute("href")||!a.getAttribute("href").startsWith("#s")) return;
+      const hit=a.textContent.toLowerCase().includes(q);
+      a.style.display = (q==="" || hit)?"flex":"none";
+    });
+  };
+  // トップへ戻る
+  const ttop=document.getElementById("toTop");
+  window.addEventListener("scroll",()=>{ ttop.classList.toggle("show", window.scrollY>600); });
+  ttop.onclick=()=>window.scrollTo({top:0,behavior:"smooth"});
+  // スクロールスパイ
+  const spy=()=>{
+    let cur="";
+    document.querySelectorAll("section[id], article.topic[id]").forEach(s=>{
+      if(s.getBoundingClientRect().top < 120) cur=s.id;
+    });
+    document.querySelectorAll(".nav-link").forEach(a=>{
+      a.classList.toggle("active", a.getAttribute("href")==="#"+cur);
+    });
+  };
+  window.addEventListener("scroll",spy); spy();
+  // ハッシュ付きで来たら開く
+  if(location.hash) openTopic(location.hash.slice(1));
+}
+
+render();
+initEvents();
+</script>
+</body>
+</html>
