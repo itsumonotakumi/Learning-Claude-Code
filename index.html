@@ -96,6 +96,8 @@ body{
   box-shadow:0 2px 8px color-mix(in srgb,var(--accent) 45%, transparent);
 }
 .topbar .spacer{flex:1}
+.topbar .xlink{font-size:.85rem;font-weight:700;color:var(--text-soft);text-decoration:none;border:1px solid var(--border-2);padding:7px 12px;border-radius:9px;transition:all .15s;white-space:nowrap}
+.topbar .xlink:hover{border-color:var(--accent);color:var(--accent)}
 .btn-icon{
   border:1px solid var(--border-2);background:var(--surface);color:var(--text-soft);
   width:40px;height:40px;border-radius:10px;cursor:pointer;font-size:1.1rem;
@@ -309,6 +311,7 @@ footer a{color:var(--accent-2)}
    ============================================================ */
 @media (max-width:860px){
   .menu-toggle{display:grid}
+  .topbar .xlink{display:none}
   .sidebar{
     position:fixed;left:0;top:57px;z-index:95;background:var(--bg);
     border-right:1px solid var(--border);box-shadow:var(--shadow-lg);
@@ -333,6 +336,7 @@ footer a{color:var(--accent-2)}
   <button class="btn-icon menu-toggle" id="menuToggle" aria-label="メニュー">☰</button>
   <div class="brand"><span class="logo">CC</span><span>Claude Code の仕組み</span></div>
   <div class="spacer"></div>
+  <a class="xlink" href="loop-engineering.html">🔁 ループ・エンジニアリング</a>
   <button class="btn-icon" id="themeToggle" aria-label="テーマ切替" title="ライト/ダーク切替">🌙</button>
 </header>
 

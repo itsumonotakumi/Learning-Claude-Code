@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>やさしいループ・エンジニアリング — 初級エンジニアのための入門</title>
+<meta name="description" content="AI時代の新しい働き方「ループ・エンジニアリング(Loop Engineering)」を、初級エンジニア向けにやさしく解説。なぜ学ぶか、ループの全体像、6つの部品、回し方、よくある落とし穴、そしてナデラの『Learning loop』との違いまで。">
+<style>
+/* ============================================================
+   デザインシステム（Claude Code教材と共通・アクセントはティール）
+   ============================================================ */
+:root{
+  --bg:        #f7faf9;
+  --bg-soft:   #eef4f2;
+  --surface:   #ffffff;
+  --surface-2: #f4f9f7;
+  --border:    #dde9e5;
+  --border-2:  #c7dad4;
+  --text:      #21302c;
+  --text-soft: #4c5e58;
+  --text-mute: #7d918a;
+  --accent:    #0f8a7e;   /* teal */
+  --accent-2:  #0a6b62;
+  --accent-soft:#e0f3ef;
+  --good:      #2f8f5b;
+  --good-soft: #e6f4ec;
+  --info:      #3b6ea5;
+  --info-soft: #e8f0f8;
+  --warn:      #b8860b;
+  --warn-soft: #f8f1de;
+  --danger:    #c0492f;
+  --danger-soft:#fbeae5;
+  --code-bg:   #14211f;
+  --code-text: #e9f2ee;
+  --shadow:    0 1px 2px rgba(20,50,42,.06), 0 6px 20px rgba(20,50,42,.07);
+  --shadow-lg: 0 10px 40px rgba(20,50,42,.14);
+  --radius:    16px;
+  --radius-sm: 10px;
+  --maxw:      1080px;
+  --sidebar-w: 290px;
+  --font: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", "Meiryo", "Segoe UI", system-ui, sans-serif;
+  --mono: "SF Mono", "JetBrains Mono", "Fira Code", Consolas, Menlo, monospace;
+}
+html[data-theme="dark"]{
+  --bg:        #131918;
+  --bg-soft:   #1a2220;
+  --surface:   #1c2523;
+  --surface-2: #222d2a;
+  --border:    #314039;
+  --border-2:  #415049;
+  --text:      #e9f2ee;
+  --text-soft: #bccdc6;
+  --text-mute: #87998f;
+  --accent:    #46c7b6;
+  --accent-2:  #65d6c6;
+  --accent-soft:#0f2e2a;
+  --good:      #6fc492;
+  --good-soft: #1f3328;
+  --info:      #7fabd6;
+  --info-soft: #1e2c3a;
+  --warn:      #d9b15a;
+  --warn-soft: #352c18;
+  --danger:    #e2876f;
+  --danger-soft:#3a201a;
+  --code-bg:   #0d1413;
+  --code-text: #e6f0eb;
+  --shadow:    0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.35);
+  --shadow-lg: 0 10px 40px rgba(0,0,0,.5);
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;scroll-padding-top:80px}
+body{font-family:var(--font);background:var(--bg);color:var(--text);line-height:1.85;font-size:16px;-webkit-font-smoothing:antialiased;letter-spacing:.01em;transition:background .3s,color .3s}
+
+/* ヘッダー */
+.topbar{position:sticky;top:0;z-index:100;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:saturate(160%) blur(12px);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;padding:12px 20px}
+.topbar .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:1.02rem}
+.topbar .brand .logo{width:30px;height:30px;border-radius:8px;flex:0 0 auto;background:linear-gradient(135deg,var(--accent),var(--accent-2));display:grid;place-items:center;color:#fff;font-weight:900;font-size:1rem;box-shadow:0 2px 8px color-mix(in srgb,var(--accent) 45%,transparent)}
+.topbar .spacer{flex:1}
+.topbar .xlink{font-size:.85rem;font-weight:700;color:var(--text-soft);text-decoration:none;border:1px solid var(--border-2);padding:7px 12px;border-radius:9px;transition:all .15s;white-space:nowrap}
+.topbar .xlink:hover{border-color:var(--accent);color:var(--accent)}
+.btn-icon{border:1px solid var(--border-2);background:var(--surface);color:var(--text-soft);width:40px;height:40px;border-radius:10px;cursor:pointer;font-size:1.1rem;display:grid;place-items:center;transition:all .15s}
+.btn-icon:hover{border-color:var(--accent);color:var(--accent);transform:translateY(-1px)}
+.menu-toggle{display:none}
+
+/* レイアウト */
+.layout{display:flex;max-width:var(--maxw);margin:0 auto;align-items:flex-start}
+.sidebar{position:sticky;top:57px;width:var(--sidebar-w);flex:0 0 var(--sidebar-w);height:calc(100vh - 57px);overflow-y:auto;padding:24px 14px 60px 20px}
+.nav-link{display:flex;align-items:center;gap:9px;padding:8px 11px;border-radius:9px;color:var(--text-soft);text-decoration:none;font-size:.88rem;line-height:1.4;border-left:3px solid transparent;transition:all .13s}
+.nav-link .ne{font-size:1rem;flex:0 0 auto;width:20px;text-align:center}
+.nav-link:hover{background:var(--bg-soft);color:var(--text)}
+.nav-link.active{background:var(--accent-soft);color:var(--accent-2);font-weight:700;border-left-color:var(--accent)}
+.nav-link.hot{color:var(--danger);font-weight:700}
+.nav-sep{height:1px;background:var(--border);margin:10px 8px}
+
+main{flex:1;min-width:0;padding:30px 28px 100px;max-width:780px}
+
+/* セクション共通 */
+section{margin-bottom:54px;scroll-margin-top:72px}
+h1{font-size:2.1rem;line-height:1.3;font-weight:900;letter-spacing:-.01em;margin-bottom:8px}
+h2.sec-title{font-size:1.5rem;font-weight:850;margin-bottom:14px;display:flex;align-items:center;gap:10px;padding-bottom:10px;border-bottom:2px solid var(--border)}
+h2.sec-title .em{font-size:1.35rem}
+h3.sub{font-weight:850;margin:26px 0 8px;font-size:1.14rem}
+.lead{font-size:1.07rem;color:var(--text-soft);line-height:1.9}
+p{margin-bottom:14px}
+a{color:var(--accent-2)}
+strong{font-weight:800;color:var(--text)}
+em{font-style:normal;background:linear-gradient(transparent 62%,var(--accent-soft) 62%);padding:0 2px;font-weight:700;font-feature-settings:normal}
+ul.clean{margin:6px 0 12px;list-style:none}
+ul.clean li{position:relative;padding-left:22px;margin-bottom:8px;line-height:1.75}
+ul.clean li::before{content:"▸";position:absolute;left:4px;color:var(--accent);font-weight:900}
+
+/* ヒーロー */
+.hero{background:radial-gradient(1200px 400px at 80% -10%,color-mix(in srgb,var(--accent) 16%,transparent),transparent),linear-gradient(180deg,var(--surface),var(--surface-2));border:1px solid var(--border);border-radius:var(--radius);padding:38px 34px;box-shadow:var(--shadow);margin-bottom:36px}
+.hero .eyebrow{display:inline-block;font-size:.78rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--accent-2);background:var(--accent-soft);padding:5px 12px;border-radius:999px;margin-bottom:16px}
+.hero p{font-size:1.1rem;color:var(--text-soft)}
+.hero .stat-row{display:flex;gap:26px;flex-wrap:wrap;margin-top:24px;padding-top:22px;border-top:1px dashed var(--border-2)}
+.hero .stat{display:flex;flex-direction:column}
+.hero .stat b{font-size:1.55rem;font-weight:900;color:var(--accent-2);line-height:1.1}
+.hero .stat span{font-size:.82rem;color:var(--text-mute);font-weight:600}
+
+/* コールアウト */
+.callout{border-radius:var(--radius-sm);padding:16px 18px;margin:18px 0;border:1px solid var(--border);background:var(--surface-2)}
+.callout .ct{font-weight:800;font-size:.92rem;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.callout.good{background:var(--good-soft);border-color:color-mix(in srgb,var(--good) 30%,transparent)}
+.callout.good .ct{color:var(--good)}
+.callout.info{background:var(--info-soft);border-color:color-mix(in srgb,var(--info) 30%,transparent)}
+.callout.info .ct{color:var(--info)}
+.callout.warn{background:var(--warn-soft);border-color:color-mix(in srgb,var(--warn) 35%,transparent)}
+.callout.warn .ct{color:var(--warn)}
+.callout.danger{background:var(--danger-soft);border-color:color-mix(in srgb,var(--danger) 35%,transparent)}
+.callout.danger .ct{color:var(--danger)}
+.callout.accent{background:var(--accent-soft);border-color:color-mix(in srgb,var(--accent) 30%,transparent)}
+.callout.accent .ct{color:var(--accent-2)}
+
+/* 引用 */
+.quote{border-left:4px solid var(--accent);background:var(--surface-2);padding:13px 16px;border-radius:0 10px 10px 0;margin:14px 0}
+.quote .en{font-style:italic;color:var(--text-soft)}
+.quote .ja{display:block;margin-top:7px;font-weight:700}
+.quote .src{display:block;margin-top:6px;font-size:.82rem;color:var(--text-mute);font-weight:700}
+
+/* コード */
+pre{background:var(--code-bg);color:var(--code-text);border-radius:var(--radius-sm);padding:16px 18px;overflow-x:auto;margin:16px 0;font-size:.84rem;line-height:1.7;font-family:var(--mono);border:1px solid rgba(255,255,255,.06)}
+code.inline{background:var(--bg-soft);border:1px solid var(--border);border-radius:6px;padding:1px 6px;font-family:var(--mono);font-size:.85em;color:var(--accent-2)}
+
+/* 図 */
+.fig{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;box-shadow:var(--shadow);margin:22px 0;text-align:center}
+.fig svg{max-width:100%;height:auto}
+.fig .cap{font-size:.86rem;color:var(--text-mute);margin-top:10px}
+
+/* たとえブロック */
+.analogy{background:var(--good-soft);border-radius:var(--radius-sm);padding:13px 16px;border-left:4px solid var(--good);margin:14px 0}
+.analogy .at{font-weight:800;color:var(--good);font-size:.9rem;margin-bottom:4px;display:flex;align-items:center;gap:7px}
+
+/* ブロックラベル */
+.block{margin-top:18px}
+.block .blabel{display:inline-flex;align-items:center;gap:7px;font-size:.8rem;font-weight:800;padding:4px 11px;border-radius:999px;margin-bottom:9px;background:var(--accent-soft);color:var(--accent-2)}
+
+/* 折りたたみカード（6部品など） */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin:14px 0;box-shadow:var(--shadow);overflow:hidden}
+.card>.chead{display:flex;align-items:flex-start;gap:14px;padding:18px 20px;cursor:pointer;user-select:none;transition:background .15s}
+.card>.chead:hover{background:var(--surface-2)}
+.card .cbadge{flex:0 0 auto;width:44px;height:44px;border-radius:12px;display:grid;place-items:center;font-size:1.4rem;background:var(--accent-soft);border:1px solid color-mix(in srgb,var(--accent) 25%,transparent)}
+.card .ctitle{flex:1;min-width:0}
+.card .ctitle .ck{font-size:.72rem;font-weight:800;color:var(--accent-2);letter-spacing:.04em}
+.card .ctitle h4{font-size:1.08rem;font-weight:800;margin:2px 0;line-height:1.4}
+.card .ctitle .cone{font-size:.9rem;color:var(--text-soft);line-height:1.6}
+.card .cchev{flex:0 0 auto;color:var(--text-mute);transition:transform .25s;margin-top:4px}
+.card.open .cchev{transform:rotate(180deg)}
+.cbody{display:none;padding:0 20px 20px;border-top:1px solid var(--border)}
+.card.open .cbody{display:block;animation:fade .25s ease}
+.cbody p{margin-top:14px}
+@keyframes fade{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.maps{display:inline-block;margin-top:12px;font-size:.82rem;font-weight:700;color:var(--accent-2);background:var(--accent-soft);border:1px solid color-mix(in srgb,var(--accent) 25%,transparent);padding:4px 10px;border-radius:8px;text-decoration:none}
+.maps:hover{background:var(--accent);color:#fff}
+
+/* テーブル */
+.table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius-sm);box-shadow:var(--shadow);margin:18px 0}
+table{border-collapse:collapse;width:100%;font-size:.9rem;background:var(--surface)}
+th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--border);vertical-align:top}
+th{background:var(--surface-2);font-weight:800;font-size:.82rem;color:var(--text-soft)}
+tr:last-child td{border-bottom:none}
+table .col1{font-weight:800;color:var(--accent-2);white-space:nowrap}
+.vs-table td:nth-child(2){background:color-mix(in srgb,var(--accent-soft) 50%,transparent)}
+
+/* ステップ */
+.steps{counter-reset:step;margin:18px 0}
+.step{position:relative;padding:14px 16px 14px 58px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:10px;box-shadow:var(--shadow)}
+.step::before{counter-increment:step;content:counter(step);position:absolute;left:14px;top:14px;width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;font-weight:900;display:grid;place-items:center;font-size:.95rem}
+.step b{display:block;font-size:1rem;margin-bottom:2px}
+.step span{font-size:.92rem;color:var(--text-soft)}
+
+/* 4世代スタック */
+.stack{display:flex;flex-direction:column;gap:8px;margin:20px 0}
+.stack .layer{border-radius:12px;padding:13px 16px;border:1px solid var(--border);display:flex;align-items:center;gap:14px;box-shadow:var(--shadow)}
+.stack .layer .lico{font-size:1.4rem;flex:0 0 auto;width:38px;text-align:center}
+.stack .layer .ltxt b{display:block;font-size:.98rem;font-weight:800}
+.stack .layer .ltxt span{font-size:.84rem;color:var(--text-soft)}
+.stack .layer .lnum{margin-left:auto;font-size:.72rem;color:var(--text-mute);font-weight:700;white-space:nowrap}
+.layer.g1{background:linear-gradient(90deg,var(--bg-soft),transparent)}
+.layer.g2{background:linear-gradient(90deg,var(--info-soft),transparent)}
+.layer.g3{background:linear-gradient(90deg,var(--warn-soft),transparent)}
+.layer.g4{background:linear-gradient(90deg,var(--accent-soft),transparent);border-color:color-mix(in srgb,var(--accent) 35%,transparent)}
+
+/* 用語集 */
+.glossary dt{font-weight:800;color:var(--text);margin-top:14px;font-size:.98rem}
+.glossary dd{color:var(--text-soft);font-size:.93rem;margin-top:2px}
+
+/* フッター */
+footer{border-top:1px solid var(--border);background:var(--surface);margin-top:40px}
+footer .inner{max-width:var(--maxw);margin:0 auto;padding:30px 28px;color:var(--text-mute);font-size:.86rem}
+footer a{color:var(--accent-2)}
+footer .srcs{margin-top:10px;font-size:.8rem;line-height:1.9}
+
+.totop{position:fixed;right:22px;bottom:22px;width:46px;height:46px;border-radius:50%;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:1.2rem;box-shadow:var(--shadow-lg);opacity:0;pointer-events:none;transition:opacity .25s,transform .15s;z-index:90}
+.totop.show{opacity:1;pointer-events:auto}
+.totop:hover{transform:translateY(-3px)}
+
+@media (max-width:860px){
+  .menu-toggle{display:grid}
+  .topbar .xlink{display:none}
+  .sidebar{position:fixed;left:0;top:57px;z-index:95;background:var(--bg);border-right:1px solid var(--border);box-shadow:var(--shadow-lg);transform:translateX(-105%);transition:transform .25s;width:84vw;max-width:320px}
+  .sidebar.open{transform:none}
+  main{padding:22px 18px 80px;max-width:100%}
+  h1{font-size:1.65rem}
+  .hero{padding:26px 20px}
+}
+@media print{.topbar,.sidebar,.totop{display:none}.cbody{display:block !important}main{max-width:100%}}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <button class="btn-icon menu-toggle" id="menuToggle" aria-label="メニュー">☰</button>
+  <div class="brand"><span class="logo">🔁</span><span>やさしいループ・エンジニアリング</span></div>
+  <div class="spacer"></div>
+  <a class="xlink" href="index.html">📚 Claude Codeの仕組み</a>
+  <button class="btn-icon" id="themeToggle" aria-label="テーマ切替" title="ライト/ダーク切替">🌙</button>
+</header>
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar">
+    <a class="nav-link" href="#why"><span class="ne">💡</span>なぜ学ぶ?</a>
+    <a class="nav-link" href="#core"><span class="ne">🎯</span>ループとは(一言で)</a>
+    <a class="nav-link" href="#model"><span class="ne">🔁</span>ループの全体像</a>
+    <a class="nav-link" href="#shift"><span class="ne">🪜</span>発想の転換(4世代)</a>
+    <a class="nav-link" href="#anatomy"><span class="ne">🧩</span>ループの6つの部品</a>
+    <a class="nav-link" href="#method"><span class="ne">📐</span>回し方(5ステップ)</a>
+    <div class="nav-sep"></div>
+    <a class="nav-link hot" href="#vs-nadella"><span class="ne">⚖️</span>ナデラのLearning loopとの違い</a>
+    <div class="nav-sep"></div>
+    <a class="nav-link" href="#relatives"><span class="ne">🔗</span>似た概念で理解する</a>
+    <a class="nav-link" href="#example"><span class="ne">🛠️</span>具体例</a>
+    <a class="nav-link" href="#pitfalls"><span class="ne">⚠️</span>3つの落とし穴</a>
+    <a class="nav-link" href="#glossary"><span class="ne">📚</span>用語ミニ辞典</a>
+  </nav>
+
+  <main>
+    <!-- ヒーロー -->
+    <section id="top">
+      <div class="hero">
+        <span class="eyebrow">初級エンジニア向け入門</span>
+        <h1>やさしいループ・エンジニアリング</h1>
+        <p>AIに毎回お願いするのをやめて、<strong>「AIが自分で仕事を回し続ける仕組み」</strong>を作る——それがループ・エンジニアリングです。2026年に生まれたばかりの新しい考え方を、専門用語をできるだけ減らして、ゼロから解説します。</p>
+        <div class="stat-row">
+          <div class="stat"><b>2026年6月</b><span>生まれたばかり</span></div>
+          <div class="stat"><b>4世代目</b><span>AI活用の進化</span></div>
+          <div class="stat"><b>6つ</b><span>ループの部品</span></div>
+          <div class="stat"><b>5ステップ</b><span>回し方の型</span></div>
+        </div>
+      </div>
+      <div class="callout info">
+        <div class="ct">📖 この教材の読み方</div>
+        上から順に読むのがおすすめです。むずかしい言葉には<strong>かみ砕いた説明</strong>と<strong>身近なたとえ</strong>を必ず添えています。左メニューの<span style="color:var(--danger);font-weight:700">⚖️ ナデラのLearning loopとの違い</span>は、よく混同される別概念をハッキリ区別するための章です。
+      </div>
+      <div class="callout accent">
+        <div class="ct">🔗 姉妹教材があります</div>
+        この教材は<a href="index.html">「Claude Codeの仕組みを理解する」</a>の続編にあたります。ループの部品(自動化・サブエージェント・メモリなど)は、あちらで学ぶ仕組みとそのまま対応します。セットで読むと理解が一気に深まります。
+      </div>
+    </section>
+
+    <!-- なぜ学ぶ -->
+    <section id="why">
+      <h2 class="sec-title"><span class="em">💡</span>なぜ、これを学ぶと良いの?</h2>
+      <p class="lead">「まだコードもうまく書けないのに、AIの仕組みの話?」と思うかもしれません。でも初級のうちにこの考え方を知っておくと、これからのエンジニア人生で大きな差になります。理由は4つです。</p>
+
+      <div class="block"><span class="blabel">メリット1 ｜ これからの「価値の出し方」が分かる</span>
+        <p>AIの使いこなしは <em>プロンプト(指示文)を磨く</em> 時代から、<em>仕組み(ループ)を設計する</em> 時代へ移りました。Claude Code を作った Anthropic のリーダーですら「もう自分でAIに指示は打たない。指示を出すループを走らせている」と言っています。<strong>「どこで価値が生まれるか」が分かれば、学ぶ順番を間違えません。</strong></p>
+      </div>
+      <div class="block"><span class="blabel">メリット2 ｜ 「AIに丸投げ」の罠を避けられる</span>
+        <p>ループは強力なぶん、油断すると<strong>「中身を理解しないままコードだけ増える」</strong>状態を生みます。提唱者自身が強く警告しているこの落とし穴を先に知っておけば、AIに使われるのではなく<strong>AIを使う側</strong>でいられます。</p>
+      </div>
+      <div class="block"><span class="blabel">メリット3 ｜ 退屈な作業を自動化できる</span>
+        <p>「毎朝CIの失敗を直す」「依存パッケージを上げる」「テストを書き足す」——こうした繰り返し作業を、寝ている間にAIに回させることが、今は<strong>製品の標準機能だけで</strong>できます。初級者でも生産性を一気に上げられます。</p>
+      </div>
+      <div class="block"><span class="blabel">メリット4 ｜ 昔からの王道スキルと地続きだと分かる</span>
+        <p>ループ・エンジニアリングは魔法ではなく、<strong>フィードバックループ・PDCA・アジャイルの反復</strong>といった昔からの考え方の延長です。新しいバズワードに振り回されず、本質をつかめます。</p>
+      </div>
+    </section>
+
+    <!-- 一言で -->
+    <section id="core">
+      <h2 class="sec-title"><span class="em">🎯</span>ループ・エンジニアリングとは(一言で)</h2>
+      <div class="callout accent">
+        <div class="ct">ひとことで言うと</div>
+        AIエージェントに<strong>毎回あなたが手で指示を打つ</strong>のをやめ、<strong>「指示を出し続ける仕組み(ループ)」をあなたが設計する</strong>働き方のこと。
+      </div>
+      <p>提唱者 Addy Osmani(Google のエンジニア)の定義はこうです。</p>
+      <div class="quote">
+        <span class="en">"Loop engineering is replacing yourself as the person who prompts the agent. You design the system that does it instead."</span>
+        <span class="ja">ループ・エンジニアリングとは、「エージェントに指示を打つ人」という役割から<u>あなた自身を外す</u>こと。代わりにそれをやる仕組みを、あなたが設計するのだ。</span>
+        <span class="src">— Addy Osmani「Loop Engineering」(2026年6月)</span>
+      </div>
+      <p>きっかけは、エンジニアの Peter Steinberger が2026年6月にSNSに書いた一言(24時間で約500万閲覧)でした。Addy Osmani がこれに<strong>名前と体系</strong>を与えて広まりました。実務のトップランナーも同じことを言っています。</p>
+      <div class="quote">
+        <span class="en">"I don't prompt Claude anymore. I have loops running that prompt Claude and figuring out what to do. My job is to write loops."</span>
+        <span class="ja">私はもう Claude に手で指示を打たない。Claude に指示を出して「次に何をすべきか」まで考えてくれるループを走らせている。私の仕事はループを書くことだ。</span>
+        <span class="src">— Boris Cherny(Anthropic / Claude Code リード)</span>
+      </div>
+      <div class="callout warn">
+        <div class="ct">⚠️ 大事な前提：これは「楽になる」話ではない</div>
+        提唱者は「ループ設計は、良い指示文を書くより<strong>むしろ難しい</strong>」と言います。「1個の答えを作る」のと「答えを出し続ける機械を作る」のは別の技能だからです。難しさが消えたのではなく、<strong>難しさの場所が移った</strong>と捉えてください。
+      </div>
+    </section>
+
+    <!-- 全体像 -->
+    <section id="model">
+      <h2 class="sec-title"><span class="em">🔁</span>ループの全体像</h2>
+      <p class="lead">むずかしく考える必要はありません。ループ1周は「<strong>目標 → 文脈 → 実行 → 検証 → 判断</strong>」のたった5段階。これを、ゴールに着くまで自動でぐるぐる回すだけです。</p>
+      <div class="fig">
+        <svg viewBox="0 0 640 250" role="img" aria-label="ループの5段階">
+          <defs>
+            <marker id="ar" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--accent)"/></marker>
+          </defs>
+          <!-- 5 boxes in a row -->
+          <g font-size="12.5" font-weight="700">
+            <rect x="8"   y="92" width="104" height="56" rx="11" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.4"/>
+            <text x="60" y="116" text-anchor="middle" fill="var(--text)">① 目標</text>
+            <text x="60" y="134" text-anchor="middle" font-size="10" font-weight="400" fill="var(--text-soft)">完了の定義</text>
+
+            <rect x="140" y="92" width="104" height="56" rx="11" fill="var(--info-soft)" stroke="var(--info)" stroke-width="1.4"/>
+            <text x="192" y="116" text-anchor="middle" fill="var(--text)">② 文脈</text>
+            <text x="192" y="134" text-anchor="middle" font-size="10" font-weight="400" fill="var(--text-soft)">必要な情報</text>
+
+            <rect x="272" y="92" width="104" height="56" rx="11" fill="var(--surface-2)" stroke="var(--border-2)" stroke-width="1.4"/>
+            <text x="324" y="116" text-anchor="middle" fill="var(--text)">③ 実行</text>
+            <text x="324" y="134" text-anchor="middle" font-size="10" font-weight="400" fill="var(--text-soft)">AIが作業</text>
+
+            <rect x="404" y="92" width="104" height="56" rx="11" fill="var(--good-soft)" stroke="var(--good)" stroke-width="1.4"/>
+            <text x="456" y="116" text-anchor="middle" fill="var(--text)">④ 検証</text>
+            <text x="456" y="134" text-anchor="middle" font-size="10" font-weight="400" fill="var(--text-soft)">本当にできた?</text>
+
+            <rect x="536" y="92" width="96" height="56" rx="11" fill="var(--warn-soft)" stroke="var(--warn)" stroke-width="1.4"/>
+            <text x="584" y="116" text-anchor="middle" fill="var(--text)">⑤ 判断</text>
+            <text x="584" y="134" text-anchor="middle" font-size="10" font-weight="400" fill="var(--text-soft)">合格?続行?</text>
+          </g>
+          <!-- arrows between -->
+          <g stroke="var(--accent)" stroke-width="2" fill="none">
+            <path d="M112,120 L138,120" marker-end="url(#ar)"/>
+            <path d="M244,120 L270,120" marker-end="url(#ar)"/>
+            <path d="M376,120 L402,120" marker-end="url(#ar)"/>
+            <path d="M508,120 L534,120" marker-end="url(#ar)"/>
+          </g>
+          <!-- loop back (fail) -->
+          <path d="M584,148 C584,205 192,210 192,150" fill="none" stroke="var(--danger)" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#ar)"/>
+          <text x="370" y="205" text-anchor="middle" font-size="11" fill="var(--danger)" font-weight="700">未達なら、文脈を足してもう一周(自己修正)</text>
+          <!-- done (pass) -->
+          <path d="M584,90 C584,40 584,30 584,28" fill="none" stroke="var(--good)" stroke-width="2" marker-end="url(#ar)"/>
+          <text x="584" y="20" text-anchor="middle" font-size="11" fill="var(--good)" font-weight="700">合格→完了</text>
+        </svg>
+        <div class="cap">人間がやるのは①の「目標(=合格の基準)」を決めることだけ。②〜⑤は仕組みが自動で繰り返します。</div>
+      </div>
+      <div class="analogy"><div class="at">🌡️ たとえ：エアコン</div>
+        エアコンは、あなたが<strong>設定温度(=目標)</strong>を決めれば、室温を測り→暑ければ冷やし→目標に達したら止める、を勝手に繰り返します。あなたは温度を決めるだけ。ループ・エンジニアリングは、これをソフトウェア開発でやるイメージです。</div>
+      <div class="callout good">
+        <div class="ct">✅ ここだけ押さえれば十分</div>
+        ループの心臓は<strong>「検証(④)」</strong>です。「できたつもり」で止めず、テストなどで<strong>本当にできたかを毎回確かめる</strong>から、安心して自動で回せる。検証できない仕事はループに向きません。
+      </div>
+    </section>
+
+    <!-- 発想の転換 -->
+    <section id="shift">
+      <h2 class="sec-title"><span class="em">🪜</span>発想の転換：AI活用の「4世代」</h2>
+      <p class="lead">ループ・エンジニアリングは、突然現れたわけではありません。AIの使い方が一段ずつ「上の階」へ進んできた、その<strong>4階建ての最上階</strong>です。各段は前の段を<strong>置き換えるのではなく、内側に含みます</strong>。</p>
+      <div class="stack">
+        <div class="layer g4"><span class="lico">🔁</span><span class="ltxt"><b>第4世代：ループ・エンジニアリング</b><span>自動で回り続ける反復サイクルを設計する</span></span><span class="lnum">2026〜</span></div>
+        <div class="layer g3"><span class="lico">🦺</span><span class="ltxt"><b>第3世代：ハーネス・エンジニアリング</b><span>AIが安全に動く「実行環境(道具・ガードレール)」を整える</span></span><span class="lnum">2026初</span></div>
+        <div class="layer g2"><span class="lico">📚</span><span class="ltxt"><b>第2世代：コンテキスト・エンジニアリング</b><span>背景・前提・例など「見せる情報」を組み立てる</span></span><span class="lnum">2025</span></div>
+        <div class="layer g1"><span class="lico">✍️</span><span class="ltxt"><b>第1世代：プロンプト・エンジニアリング</b><span>1回の指示文の言い回しを磨く</span></span><span class="lnum">2022〜24</span></div>
+      </div>
+      <h3 class="sub">エンジニアの役割はどう変わる?</h3>
+      <p>仕事の中心が、<strong>「自分で書くこと(authorship)」から「複数のAIを指揮すること(orchestration)」</strong>へ移ります。指揮者がオーケストラをまとめるように、あなたは複数のエージェントを編成して目的を達成します。</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>観点</th><th>プロンプト・エンジニアリング</th><th>ループ・エンジニアリング</th></tr></thead>
+        <tbody>
+          <tr><td class="col1">仕事の単位</td><td>1回のやり取り</td><td>自律実行まるごと1回</td></tr>
+          <tr><td class="col1">指示の出し手</td><td>人間が手動</td><td>設計された仕組み</td></tr>
+          <tr><td class="col1">時間スケール</td><td>数秒</td><td>数分〜数時間</td></tr>
+          <tr><td class="col1">成果物</td><td>(未検証の)返答</td><td>検証済みの成果</td></tr>
+        </tbody>
+      </table></div>
+      <div class="callout warn">
+        <div class="ct">⚠️ 「プロンプトはもう不要」ではない</div>
+        良い指示文は今も有効です。提唱者も「ループを組みつつ、直接プロンプトを打つのも依然有効。要はバランス」と言っています。<strong>「全部ループ化しよう」と過熱する(loopmaxxing)</strong>のは逆効果です。
+      </div>
+    </section>
+
+    <!-- 6部品 -->
+    <section id="anatomy">
+      <h2 class="sec-title"><span class="em">🧩</span>ループをつくる6つの部品</h2>
+      <p class="lead">良いループは、次の6つの部品でできています。カードをクリックで開きます。<strong>これらはすべて、姉妹教材「Claude Codeの仕組み」で学ぶ機能そのもの</strong>です(各カードにリンクあり)。</p>
+
+      <article class="card" id="m1"><div class="chead" onclick="toggleCard('m1')">
+        <div class="cbadge">⏰</div><div class="ctitle"><div class="ck">部品 1</div><h4>自動トリガー(Automations)</h4>
+        <div class="cone">決まった時刻やイベントで、ループを勝手に起動するスイッチ。</div></div><div class="cchev">▼</div></div>
+        <div class="cbody">
+          <p>「毎朝9時」「issueが来たら」など、<strong>人間がボタンを押さなくても動き出す</strong>きっかけ。これが無いと「一度実行しただけ」で終わり、ループになりません。</p>
+          <ul class="clean"><li>例：毎朝CIの失敗を拾う／溜まったissueを処理する</li></ul>
+          <a class="maps" href="index.html#s14">→ Claude Code教材「s14 Cron スケジューラー」で詳説</a>
+        </div>
+      </article>
+
+      <article class="card" id="m2"><div class="chead" onclick="toggleCard('m2')">
+        <div class="cbadge">🌳</div><div class="ctitle"><div class="ck">部品 2</div><h4>作業場所の分離(Worktrees)</h4>
+        <div class="cone">複数のAIが同時に作業しても、ぶつからないよう机を分ける。</div></div><div class="cchev">▼</div></div>
+        <div class="cbody">
+          <p>gitの<code class="inline">worktree</code>機能で、エージェントごとに別フォルダ・別ブランチを与えます。これが無いと、同じファイルを同時に書いて<strong>上書き事故</strong>が起きます。</p>
+          <a class="maps" href="index.html#s18">→ Claude Code教材「s18 Worktree 分離」で詳説</a>
+        </div>
+      </article>
+
+      <article class="card" id="m3"><div class="chead" onclick="toggleCard('m3')">
+        <div class="cbadge">📜</div><div class="ctitle"><div class="ck">部品 3</div><h4>スキル(Skills)</h4>
+        <div class="cone">プロジェクトの知識やビルド手順を書き溜めた「説明書」。</div></div><div class="cchev">▼</div></div>
+        <div class="cbody">
+          <p>「ビルドは <code class="inline">pnpm install</code>」「カバレッジは80%以上」などをMarkdownに記録。毎回ゼロから説明し直さずに済みます。<em>モデルは忘れるが、ファイルは忘れない。</em></p>
+          <a class="maps" href="index.html#s07">→ Claude Code教材「s07 スキル」で詳説</a>
+        </div>
+      </article>
+
+      <article class="card" id="m4"><div class="chead" onclick="toggleCard('m4')">
+        <div class="cbadge">🪆</div><div class="ctitle"><div class="ck">部品 4</div><h4>サブエージェント(Sub-agents)</h4>
+        <div class="cone">「作る役」と「チェックする役」を別のAIに分ける。</div></div><div class="cchev">▼</div></div>
+        <div class="cbody">
+          <p>役割分担で相互チェックします。<strong>自分が書いたコードを自分で採点すると甘くなる</strong>ため、検証役は<u>別のAI・別の会話</u>で動かすのがコツ。調査役・実装役・検証役のように分けます。</p>
+          <a class="maps" href="index.html#s06">→ Claude Code教材「s06 サブエージェント」で詳説</a>
+        </div>
+      </article>
+
+      <article class="card" id="m5"><div class="chead" onclick="toggleCard('m5')">
+        <div class="cbadge">🔌</div><div class="ctitle"><div class="ck">部品 5</div><h4>コネクタ(Connectors)</h4>
+        <div class="cone">GitHub・DB・Slackなど、現実のツールへの「つなぎ口」。</div></div><div class="cchev">▼</div></div>
+        <div class="cbody">
+          <p>MCP(共通の接続規格)などを通じて外部サービスにつなぎます。これが無いとAIは「文章を出すだけ」で、PRを作る・チケットを更新するといった<strong>現実への作用</strong>ができません。</p>
+          <a class="maps" href="index.html#s19">→ Claude Code教材「s19 MCP ツール」で詳説</a>
+        </div>
+      </article>
+
+      <article class="card" id="m6"><div class="chead" onclick="toggleCard('m6')">
+        <div class="cbadge">🧠</div><div class="ctitle"><div class="ck">部品 6（最も過小評価される）</div><h4>メモリ・状態(Memory / State)</h4>
+        <div class="cone">会話の外に「やったこと・残り」を保存し、次の周回へ引き継ぐ。</div></div><div class="cchev">▼</div></div>
+        <div class="cbody">
+          <p>AIは実行のたびに記憶を失います。だからMarkdownや課題管理ツールに<strong>進捗・試したこと・結果</strong>を残し、翌日のサイクルが続きから始められるようにします。「モデルは忘れる。リポジトリは忘れない。」</p>
+          <a class="maps" href="index.html#s09">→ Claude Code教材「s09 メモリ」で詳説</a>
+        </div>
+      </article>
+
+      <div class="callout accent">
+        <div class="ct">💡 つまり</div>
+        ループ・エンジニアリングとは、<strong>これら6つの部品を組み合わせて「自動で回り続ける開発ライン」を設計する</strong>こと。1個1個の部品の作り方は、姉妹教材ですでに学べます。
+      </div>
+    </section>
+
+    <!-- 回し方 5ステップ -->
+    <section id="method">
+      <h2 class="sec-title"><span class="em">📐</span>回し方：検証できるループの5ステップ</h2>
+      <p class="lead">「とりあえず自動で回す」では暴走します。信頼できるループは、次の5ステップで設計します。</p>
+      <div class="steps">
+        <div class="step"><b>目標契約(Goal Contract)を書く</b><span>「何を・どこまで・合格の基準・やってはいけないこと」を<strong>先に文章で決める</strong>。例：「テスト全合格・エラー率0.1%未満・ドキュメント更新済み」。これがAIの“完了判定”の物差しになります。</span></div>
+        <div class="step"><b>エージェントに実行させる</b><span>AIがタスクを分解し、道具を使って作業。必要なら複数を並列で。</span></div>
+        <div class="step"><b>「証拠」でフィードバックする</b><span>感想ではなく<strong>事実</strong>で判定：テスト結果、エラーログ、画面のスクショ、性能の数値、CIの状態など。</span></div>
+        <div class="step"><b>停止条件を決める</b><span>合格→納品／失敗→変更を取り消し(ロールバック)／判断不能→人間に引き継ぎ／時間切れ→中断して報告。<strong>「いつ止まるか」を決めないと無限ループ</strong>になります。</span></div>
+        <div class="step"><b>経験を貯める</b><span>成功はテンプレートやスキルへ、失敗は「やってはいけない集」へ。次のループが少しずつ賢くなります。</span></div>
+      </div>
+      <div class="callout danger">
+        <div class="ct">🚧 ループに向く仕事・向かない仕事</div>
+        <strong>向く</strong>：CI修復・テスト生成・ログ巡回・ドキュメント同期・依存アップグレード(=合否を機械が判定できる仕事)。<br>
+        <strong>向かない</strong>：大規模リファクタ(やり直しが重い)・本番権限の操作・セキュリティに敏感な変更・「美しさ」など検証できない判断。
+      </div>
+    </section>
+
+    <!-- ★ ナデラとの違い -->
+    <section id="vs-nadella">
+      <h2 class="sec-title"><span class="em">⚖️</span>ナデラの「Learning loop」とは別物です</h2>
+      <p class="lead">同じ「ループ」でも、Microsoft CEO サティア・ナデラが言う<strong>「Learning loop(学習ループ)」</strong>は、ここまでのループ・エンジニアリングとは<strong>まったく別の話</strong>です。混同しやすいので、ハッキリ区別しておきましょう。</p>
+
+      <h3 class="sub">まず、ナデラの「Learning loop」とは?</h3>
+      <p>ナデラは2026年6月のエッセイで、企業向けにこう説きました。</p>
+      <div class="quote">
+        <span class="en">"The real opportunity is not in picking the best model but instead in building a learning loop on top of models ... This loop becomes the new IP of the firm."</span>
+        <span class="ja">本当のチャンスは「最良のAIモデルを選ぶこと」ではなく、モデルの上に<u>学習ループ</u>を築くことだ。…このループが、その企業の新しい知的財産(IP)になる。</span>
+        <span class="src">— Satya Nadella(2026年6月)</span>
+      </div>
+      <p>つまり、<strong>会社が自社の業務知識・判断・データでAIを継続的に賢くし続け、他社にマネできない競争力(=財産)を積み上げる</strong>、という<strong>経営・ビジネスの戦略</strong>の話です。社員の判断や修正がAIに溜まり、AIが業務を良くし、さらにデータが増える——という「人とAIの学びの循環」を指します。</p>
+
+      <h3 class="sub">何が違うのか(対比表)</h3>
+      <div class="table-wrap"><table class="vs-table">
+        <thead><tr><th>観点</th><th>ループ・エンジニアリング<br><span style="font-weight:400;font-size:.85em">(Addy Osmani)</span></th><th>Learning loop<br><span style="font-weight:400;font-size:.85em">(サティア・ナデラ)</span></th></tr></thead>
+        <tbody>
+          <tr><td class="col1">誰の話?</td><td>開発者・エンジニア(個人〜チーム)</td><td>企業・経営者</td></tr>
+          <tr><td class="col1">目的</td><td>AIに開発作業を自動で反復させる</td><td>AIで会社の競争力(IP)を築く</td></tr>
+          <tr><td class="col1">スケール</td><td>1つの開発タスク〜リポジトリ</td><td>組織・事業・産業の全体</td></tr>
+          <tr><td class="col1">「ループ」の中身</td><td>エージェントの<strong>実行</strong>の反復<br>(目標→実行→検証→繰り返し)</td><td>人とAIの<strong>学習</strong>の循環<br>(判断→AIが改善→業務向上→さらに学習)</td></tr>
+          <tr><td class="col1">何が溜まる?</td><td>コードの変更・完了した成果物</td><td>組織の知識・判断(企業の財産)</td></tr>
+          <tr><td class="col1">出てくる文脈</td><td>AIコーディング、開発生産性</td><td>AI産業の構造、企業の競争戦略</td></tr>
+        </tbody>
+      </table></div>
+
+      <div class="callout info">
+        <div class="ct">🤔 なぜ混同しやすい?</div>
+        ①どちらも英語で <strong>"loop"</strong> を含む ②同じ<strong>2026年6月頃</strong>にAI文脈で話題化した ③どちらも「人が手を動かすのをやめ、仕組みに繰り返させる」という<strong>“自動で回り続ける”イメージ</strong>を共有している——から。語感がとても似ています。
+      </div>
+      <div class="callout good">
+        <div class="ct">✅ なぜ本質的に別物?</div>
+        <strong>主語・スケール・“ループ”の中身がすべて違う</strong>からです。ループ・エンジニアリングは<strong>「開発者が、AIの作業ループを設計・運用する“作り方”の話」</strong>。ナデラのLearning loopは<strong>「企業が、AIで競争力を積み上げる“経営戦略”の話」</strong>。たまたま同じ単語を使っているだけの、別レイヤーの概念だと考えてください。
+      </div>
+      <div class="callout warn">
+        <div class="ct">📌 補足(マインドセットの "learn-it-all")</div>
+        ナデラには、もう一つ有名な「学び続ける姿勢(know-it-all → <strong>learn-it-all</strong>)」という企業文化の話(2014年〜・著書『Hit Refresh』)もあります。こちらは<strong>「人の学習態度」</strong>の話で、ループ・エンジニアリングとは関係がさらに遠いものです。
+      </div>
+    </section>
+
+    <!-- 似た概念 -->
+    <section id="relatives">
+      <h2 class="sec-title"><span class="em">🔗</span>似た概念で理解する(怖くない、昔からある考え方)</h2>
+      <p class="lead">ループ・エンジニアリングは新語ですが、骨組みは<strong>昔から確立された“ループ”の考え方</strong>と同じです。知っているものに結びつけると、一気にやさしくなります。</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>確立された概念</th><th>ひとこと</th><th>ループ・エンジニアリングとの関係</th></tr></thead>
+        <tbody>
+          <tr><td class="col1">フィードバックループ</td><td>出力を測り、目標と比べ、次の行動を直す循環(制御の基本)</td><td><strong>すべての“ループ”の親</strong>。検証して直す心臓部はこれそのもの</td></tr>
+          <tr><td class="col1">OODAループ</td><td>観察→状況判断→決定→行動を高速で回す意思決定法</td><td>エージェントの「観察→考える→動く→繰り返す」と同型</td></tr>
+          <tr><td class="col1">Build-Measure-Learn</td><td>作る→測る→学ぶ(リーンスタートアップ)</td><td>構造が同じ。回す主体が「人」か「AI」かが違うだけ</td></tr>
+          <tr><td class="col1">アジャイルの反復</td><td>短いサイクルで作って直して洗練する</td><td>それを<strong>分〜時間単位まで短く・自動化</strong>したもの</td></tr>
+          <tr><td class="col1">エージェントループ</td><td>AIが「モデル→道具→結果→反復」を自走するパターン</td><td>これは<strong>“部品”</strong>。ループ・エンジニアリングは“工場”の設計</td></tr>
+        </tbody>
+      </table></div>
+      <div class="analogy"><div class="at">🚗 たとえ：カーナビ</div>
+        目的地(=目標)を入れると、現在地を観測→ルート計算→道を間違えても自動で<strong>リルート</strong>→指示し直す、を繰り返します。あなたは運転(=最終判断)に集中。これは OODA ループそのもので、エージェントの「自己修正」と同じ形です。</div>
+      <h3 class="sub">人の関わり方：「in the loop」と「on the loop」</h3>
+      <p>AIの監督には2つの型があります。<strong>human-in-the-loop</strong>=一つひとつ人が承認する(安全・低速)。<strong>human-on-the-loop</strong>=AIが自走し、人は<strong>監視と異常時の介入</strong>に回る(効率・要監視)。ループ・エンジニアリングは基本的に後者(on the loop)です。ただし「監督の手は抜くな」が鉄則です。</p>
+    </section>
+
+    <!-- 具体例 -->
+    <section id="example">
+      <h2 class="sec-title"><span class="em">🛠️</span>具体例：朝のリポジトリ自動メンテ</h2>
+      <p class="lead">提唱者が挙げる代表例です。<strong>一度設計すれば、あとは毎朝勝手に走ります。</strong></p>
+      <pre>毎朝 自動で起動（自動トリガー）
+   ↓
+トリアージ役が CI失敗・未対応issue・最近のコミットを点検
+   ↓
+調べた結果を state ファイル(Markdown)に書き出す（メモリ）
+   ↓
+分離した作業フォルダで サブエージェントA が修正案を作成（Worktree＋サブエージェント）
+   ↓
+サブエージェントB が テストやスキルに照らしてレビュー（検証）
+   ↓
+コネクタが 自動でプルリクを作成・チケット更新（コネクタ）
+   ↓
+判断できないものは「人間用の受信箱」へ（＝人が監督）
+   ↓
+state に「試した/合格/未対応」を記録 → 翌朝のサイクルへ</pre>
+      <div class="quote">
+        <span class="en">"You designed it one time. You did not prompt any of those steps."</span>
+        <span class="ja">あなたは一度それを設計しただけ。これらのステップを<u>一つも手で指示していない</u>。</span>
+        <span class="src">— Addy Osmani</span>
+      </div>
+      <div class="callout good">
+        <div class="ct">✅ 初級者におすすめの第一歩</div>
+        いきなり全部は作らないこと。<strong>「テストが落ちたら直す」だけの小さなループ</strong>から始め、検証(テスト)と停止条件をしっかり決める。慣れてきたら部品を足していきましょう。
+      </div>
+    </section>
+
+    <!-- 落とし穴 -->
+    <section id="pitfalls">
+      <h2 class="sec-title"><span class="em">⚠️</span>3つの落とし穴(ここが一番大事)</h2>
+      <p class="lead">提唱者が繰り返し警告するのが、この“負債”です。便利さの裏返しなので、初級のうちに必ず知っておきましょう。</p>
+      <div class="block"><span class="blabel" style="background:var(--danger-soft);color:var(--danger)">落とし穴1 ｜ 検証の負債</span>
+        <p>「完了しました」とAIが言っても<strong>証拠がない</strong>状態。CIが通る≠ロジックが正しい。<em>無人で走るループは、ミスも無人で量産する。</em> → 必ず証拠(テスト等)で確かめる。</p>
+      </div>
+      <div class="block"><span class="blabel" style="background:var(--danger-soft);color:var(--danger)">落とし穴2 ｜ 理解の負債</span>
+        <p>自分が読んでいないコードがどんどん増え、<strong>半年後に自分のプロジェクトで迷子</strong>になる。<em>あなたが書いていないコードを速く出すほど、理解のギャップは広がる。</em> → ループが生んだコードを読む習慣を。</p>
+      </div>
+      <div class="block"><span class="blabel" style="background:var(--danger-soft);color:var(--danger)">落とし穴3 ｜ 認知的降伏(いちばん危険)</span>
+        <p>「このタスクは本当に必要か?」を考えなくなり、<strong>「どのループに投げるか」しか考えなくなる</strong>状態。<em>楽な姿勢こそ危険な姿勢。</em> → 思考を手放さない。</p>
+      </div>
+      <div class="callout accent">
+        <div class="ct">🧭 提唱者からの一番のメッセージ</div>
+        <div class="quote" style="margin:8px 0 0;border-color:var(--accent)">
+          <span class="en">"Build the loop. But build it like someone who intends to stay the engineer, not just the person who presses go."</span>
+          <span class="ja">ループを作れ。ただし<u>「起動ボタンを押すだけの人」ではなく「エンジニアであり続けるつもりの人」</u>として作れ。</span>
+        </div>
+        <p style="margin-top:12px;margin-bottom:0">同じループでも、<strong>判断力を持って使えば“解毒剤”、思考から逃げるために使えば“促進剤”</strong>になります。道具は同じでも、使う人の姿勢で結果は正反対になります。</p>
+      </div>
+    </section>
+
+    <!-- 用語集 -->
+    <section id="glossary" class="glossary">
+      <h2 class="sec-title"><span class="em">📚</span>用語ミニ辞典</h2>
+      <p class="lead">本文に出てきた言葉を、最小限の説明で。</p>
+      <dl>
+        <dt>ループ・エンジニアリング (Loop Engineering)</dt><dd>AIに毎回指示する代わりに、「仕事を見つけ→やらせ→確認し→次を決める」自動サイクルを設計する考え方。2026年6月にAddy Osmaniが命名。</dd>
+        <dt>プロンプト</dt><dd>AIへの指示文。従来は人間が毎回チャット欄に打っていた。</dd>
+        <dt>エージェント</dt><dd>自分でタスクを分解し、道具(ツール)を使って作業を進めるAI。</dd>
+        <dt>サブエージェント</dt><dd>役割を分けた複数のエージェント(調査役・実装役・検証役など)。</dd>
+        <dt>ハーネス (harness)</dt><dd>エージェントが安全に動くための「実行環境」。道具・ガードレール・フィードバックの足回り。</dd>
+        <dt>MCP</dt><dd>AIを外部サービス(GitHub・DB・Slack等)につなぐ共通の接続規格。「つなぎ口」。</dd>
+        <dt>worktree (ワークツリー)</dt><dd>gitの機能。1つのリポジトリから複数の作業フォルダを分け、エージェント同士の衝突を防ぐ。</dd>
+        <dt>目標契約 (Goal Contract)</dt><dd>「何を・どこまで・合格基準・禁止事項」を事前に文書化したもの。AIの完了判定の基準。</dd>
+        <dt>検証ゲート</dt><dd>条件(証拠)を満たすまで次へ進ませない関所。</dd>
+        <dt>ロールバック</dt><dd>問題が起きたら変更を元に戻すこと。</dd>
+        <dt>CI / CD</dt><dd>コード変更時に自動でテスト・ビルド・デプロイを回す仕組み。</dd>
+        <dt>フィードバックループ</dt><dd>出力を測って目標と比べ、次の行動を補正する循環。あらゆるループの土台(Wienerのサイバネティクスが源流)。</dd>
+        <dt>OODAループ</dt><dd>観察→状況判断→決定→行動を高速で回す意思決定モデル。</dd>
+        <dt>human-on-the-loop</dt><dd>AIが自走し、人は監視と異常時の介入に回る監督スタイル。</dd>
+        <dt>理解の負債 / 認知的降伏</dt><dd>AI生成物を理解しないまま積み上げる危険(理解の負債)、自分で考えるのをやめる危険(認知的降伏)。</dd>
+        <dt>Learning loop (ナデラ)</dt><dd>企業が自社の知識でAIを継続学習させ競争力(IP)を築く<strong>経営戦略</strong>の概念。ループ・エンジニアリングとは別物。</dd>
+      </dl>
+    </section>
+
+    <section id="closing">
+      <div class="callout accent">
+        <div class="ct">🎓 まとめ</div>
+        ループ・エンジニアリングとは、<strong>「目標→実行→検証→繰り返し」を自動で回す仕組みを、あなたが設計する</strong>こと。難しさは消えず、場所が「書くこと」から「設計すること」へ移っただけです。<strong>検証と理解を手放さない</strong>かぎり、これは初級者の生産性を大きく押し上げる強力な武器になります。まずは小さなループから、一度作ってみましょう。
+      </div>
+    </section>
+  </main>
+</div>
+
+<button class="totop" id="toTop" aria-label="トップへ戻る">↑</button>
+
+<footer>
+  <div class="inner">
+    <p><strong>やさしいループ・エンジニアリング</strong> — 初級エンジニアのための入門</p>
+    <p style="margin-top:8px">このページは<strong>単一HTMLファイル</strong>で動作し、外部通信・データ保存を一切行いません。保存してオフラインでも読めます。姉妹教材：<a href="index.html">Claude Codeの仕組みを理解する</a></p>
+    <div class="srcs">
+      <strong>主な情報源(一次情報を中心に確認)</strong><br>
+      ・Addy Osmani「Loop Engineering」 <a href="https://addyosmani.com/blog/loop-engineering/" target="_blank" rel="noopener">addyosmani.com</a> / <a href="https://www.oreilly.com/radar/loop-engineering/" target="_blank" rel="noopener">O'Reilly Radar</a><br>
+      ・Zenn「Loop Engineering という新しいパラダイムの正体」 <a href="https://zenn.dev/acrosstudioblog/articles/38509c0473683a" target="_blank" rel="noopener">acrosstudioblog</a><br>
+      ・Satya Nadella エッセイ(2026年6月／企業のlearning loop論)、著書『Hit Refresh』(learn-it-all文化)<br>
+      ・関連概念：フィードバックループ(Wiener), OODA(Boyd), Lean Startup(Ries), ReAct(2022) ほか
+    </div>
+    <p style="margin-top:10px;font-size:.8rem">※ ループ・エンジニアリングは2026年に生まれた新しい用語で、定義は今も流動的です。本資料は学習目的の二次教材です。一部の数値・コードは例示であり、検証済みベンチマークではありません。</p>
+  </div>
+</footer>
+
+<script>
+/* 折りたたみ */
+function toggleCard(id){ document.getElementById(id).classList.toggle("open"); }
+/* テーマ切替（保存はしない＝リロードで戻る） */
+const tt=document.getElementById("themeToggle");
+tt.onclick=()=>{
+  const next=document.documentElement.getAttribute("data-theme")==="dark"?"light":"dark";
+  document.documentElement.setAttribute("data-theme",next);
+  tt.textContent= next==="dark"?"☀️":"🌙";
+};
+/* モバイルメニュー */
+const sb=document.getElementById("sidebar"), mt=document.getElementById("menuToggle");
+mt.onclick=()=>sb.classList.toggle("open");
+sb.addEventListener("click",e=>{ if(e.target.closest(".nav-link")) sb.classList.remove("open"); });
+/* トップへ戻る */
+const ttop=document.getElementById("toTop");
+window.addEventListener("scroll",()=>{ ttop.classList.toggle("show", window.scrollY>600); });
+ttop.onclick=()=>window.scrollTo({top:0,behavior:"smooth"});
+/* スクロールスパイ */
+const links=[...document.querySelectorAll(".nav-link")];
+const spy=()=>{
+  let cur="";
+  document.querySelectorAll("section[id]").forEach(s=>{ if(s.getBoundingClientRect().top<140) cur=s.id; });
+  links.forEach(a=>a.classList.toggle("active", a.getAttribute("href")==="#"+cur));
+};
+window.addEventListener("scroll",spy); spy();
+</script>
+</body>
+</html>
